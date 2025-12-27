@@ -1,0 +1,16 @@
+# Build artifacts
+target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Coverage
+/target/llvm-cov/
+
+# OS
+.DS_Store
