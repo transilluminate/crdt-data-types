@@ -5,6 +5,9 @@ edition = "2021"
 description = "High-performance CRDT library with dual pathways: JSON-native for web APIs and Cap'n Proto zero-copy for binary transport"
 authors = ["Adrian Robinson <adrian.j.robinson@gmail.com>"]
 
+[workspace]
+members = ["demo-server"]
+
 [dependencies]
 capnp = "0.18"
 capnp-rpc = "0.18"

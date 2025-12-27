@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CRDT Rogue-like</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #111;
+            color: #eee;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        h1 {
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px #fff;
+        }
+        #main-layout {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        #game-column {
+            display: flex;
+            flex-direction: column;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+            border: 2px solid #333;
+        }
+        canvas {
+            background-color: #000;
+            display: block;
+            image-rendering: pixelated;
+        }
+        #sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding: 20px;
+            background: #222;
+            border: 1px solid #444;
+            min-width: 150px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .legend-symbol {
+            font-weight: bold;
+            font-size: 1.2em;
+            width: 20px;
+            text-align: center;
+        }
+        #bottom-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 800px; /* Match canvas width */
+            margin-top: 10px;
+            padding: 15px;
+            background: #222;
+            border: 1px solid #444;
+            box-sizing: border-box;
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+        #health-display {
+            color: #ff0000;
+            font-size: 2em;
+            letter-spacing: 5px;
+            text-shadow: 0 0 5px #ff0000;
+        }
+        #inventory-display {
+            display: flex;
+            gap: 30px;
+            font-size: 1.5em;
+        }
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        #footer {
+            margin-top: 10px; 
+            font-size: 0.8em; 
+            color: #666; 
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>CRDT ROGUE DEMO!</h1>
+    
+    <div id="main-layout">
+        <div id="game-column">
+            <div id="game-container">
+                <canvas id="canvas" width="800" height="600"></canvas>
+            </div>
+            
+            <div id="bottom-bar">
+                <div id="health-display">♥♥♥</div>
+                <div id="inventory-display">
+                    <div class="stat-item">
+                        <span style="color: #ffd700">o</span>
+                        <span id="score-val">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span style="color: #00ffff">†</span>
+                        <span id="sword-val">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="footer">
+                <div id="server-stats">Server Stats: Waiting...</div>
+                <div id="controls-hint">Use Arrow Keys to Move</div>
+                <div><a style="color:#eee; text-decoration: none;" href="https://github.com/transilluminate/crdt-data-types" target="_blank" rel="noopener noreferrer">https://github.com/transilluminate/crdt-data-types</a></div>
+            </div>
+        </div>
+        
+        <div id="sidebar">
+            <h3 style="margin: 0; border-bottom: 1px solid #444; padding-bottom: 10px;">LEGEND</h3>
+            <div class="legend-item">
+                <span class="legend-symbol" style="color: #fff">@</span>
+                <span>Player</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol" style="color: #f00">M</span>
+                <span>Monster</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol" style="color: #ffd700">o</span>
+                <span>Coin</span>
+            </div>
+            <div class="legend-item">
+                <span class="legend-symbol" style="color: #00ffff">†</span>
+                <span>Sword</span>
+            </div>
+            <div style="margin-top: auto; border-top: 1px solid #444; padding-top: 10px;">
+                <div id="status" style="font-size: 0.8em; color: #888;">Connecting...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('status');
+        const serverStatsEl = document.getElementById('server-stats');
+        
+        // UI Elements
+        const healthEl = document.getElementById('health-display');
+        const scoreValEl = document.getElementById('score-val');
+        const swordValEl = document.getElementById('sword-val');
+
+        // Game Config
+        const TILE_SIZE = 20;
+        const MAP_WIDTH = 40;
+        const MAP_HEIGHT = 30;
+        
+        // State
+        const entities = new Map();
+        const playerId = 'player-' + Math.random().toString(36).substr(2, 9);
+        let playerX = Math.floor(Math.random() * MAP_WIDTH);
+        let playerY = Math.floor(Math.random() * MAP_HEIGHT);
+        const playerColor = '#00FF00'; // Start Green (Full Health)
+        let isDead = false;
+
+        // WebSocket
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        let ws;
+
+        function updateUI(entity) {
+            if (!entity) return;
+            
+            // Update Score
+            scoreValEl.textContent = entity.score || 0;
+            
+            // Update Sword Durability
+            swordValEl.textContent = entity.durability || 0;
+            
+            // Update Health Hearts
+            const hp = entity.health !== undefined ? entity.health : 3;
+            let hearts = '';
+            for(let i=0; i<hp; i++) hearts += '♥';
+            healthEl.textContent = hearts;
+        }
+
+        function connect() {
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                statusEl.textContent = `Connected as ${playerId}`;
+                statusEl.style.color = '#4caf50';
+                
+                // Send initial player state
+                sendUpdate();
+            };
+
+            ws.onclose = () => {
+                statusEl.textContent = 'Disconnected...';
+                statusEl.style.color = '#f44336';
+                setTimeout(connect, 1000);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    
+                    if (msg.stats) {
+                        serverStatsEl.textContent = `CRDT Events: ${msg.stats.events_processed.toLocaleString()} | Players: ${msg.stats.active_players} | Monsters: ${msg.stats.active_monsters}`;
+                        return;
+                    }
+
+                    if (msg.entity) {
+                        const update = msg;
+                        // console.log("CRDT Update:", update.entity.kind, update.entity.id, update.entity);
+                        
+                        if (update.entity.kind === 'Deleted') {
+                            entities.delete(update.entity.id);
+                            if (update.entity.id === playerId) {
+                                isDead = true;
+                                statusEl.textContent = "GAME OVER";
+                                statusEl.style.color = "#ff0000";
+                                healthEl.textContent = ""; // Clear hearts on death
+                            }
+                        } else {
+                            entities.set(update.entity.id, update.entity);
+                            if (update.entity.id === playerId) {
+                                // Sync local state if server corrects us
+                                updateUI(update.entity);
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error parsing message:', e);
+                }
+            };
+        }
+
+        function sendUpdate() {
+            if (!ws || ws.readyState !== WebSocket.OPEN || isDead) return;
+
+            // Use current state to preserve score/durability/color
+            const current = entities.get(playerId);
+            const score = current ? current.score : 0;
+            const durability = current ? current.durability : 0;
+            const color = current ? current.color : playerColor;
+            const health = current ? current.health : 3; // Default to 3 hearts
+
+            const update = {
+                entity: {
+                    id: playerId,
+                    x: playerX,
+                    y: playerY,
+                    kind: 'Player',
+                    color: color,
+                    score: score,
+                    durability: durability,
+                    spawn_time: 0,
+                    health: health
+                },
+                timestamp: Date.now()
+            };
+            ws.send(JSON.stringify(update));
+        }
+
+        // Input Handling
+        window.addEventListener('keydown', (e) => {
+            if (isDead) return;
+            let moved = false;
+            switch(e.key) {
+                case 'ArrowUp': 
+                case 'w':
+                    if (playerY > 0) { playerY--; moved = true; }
+                    break;
+                case 'ArrowDown': 
+                case 's':
+                    if (playerY < MAP_HEIGHT - 1) { playerY++; moved = true; }
+                    break;
+                case 'ArrowLeft': 
+                case 'a':
+                    if (playerX > 0) { playerX--; moved = true; }
+                    break;
+                case 'ArrowRight': 
+                case 'd':
+                    if (playerX < MAP_WIDTH - 1) { playerX++; moved = true; }
+                    break;
+            }
+
+            if (moved) {
+                // Optimistic update
+                const current = entities.get(playerId);
+                const newEntity = {
+                    id: playerId,
+                    x: playerX,
+                    y: playerY,
+                    kind: 'Player',
+                    color: current ? current.color : playerColor,
+                    score: current ? current.score : 0,
+                    durability: current ? current.durability : 0,
+                    spawn_time: 0,
+                    health: current ? current.health : 3
+                };
+                entities.set(playerId, newEntity);
+                // updateUI(newEntity); // Optional: update UI immediately on move? Maybe wait for server ack to be safe/consistent
+                sendUpdate();
+            }
+        });
+
+        // Respawn Handler
+        canvas.addEventListener('click', () => {
+            if (isDead) {
+                location.reload(); // Simple reload for now to reset everything cleanly
+            }
+        });
+
+        // Render Loop
+        function render() {
+            // Clear background
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Entities
+            ctx.font = `${TILE_SIZE}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            for (const entity of entities.values()) {
+                const screenX = entity.x * TILE_SIZE + TILE_SIZE / 2;
+                const screenY = entity.y * TILE_SIZE + TILE_SIZE / 2;
+
+                if (entity.kind === 'Player') {
+                    ctx.fillStyle = entity.color;
+                    ctx.fillText('@', screenX, screenY);
+                    
+                } else if (entity.kind === 'Monster') {
+                    ctx.fillStyle = '#ff0000';
+                    ctx.fillText('M', screenX, screenY);
+                } else if (entity.kind === 'Coin') {
+                    ctx.fillStyle = '#ffd700';
+                    ctx.fillText('o', screenX, screenY);
+                } else if (entity.kind === 'Sword') {
+                    ctx.fillStyle = '#00ffff';
+                    ctx.fillText('†', screenX, screenY);
+                }
+            }
+
+            if (isDead) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ff0000';
+                ctx.font = '40px monospace';
+                ctx.fillText('YOU DIED', canvas.width/2, canvas.height/2);
+                ctx.font = '20px monospace';
+                ctx.fillStyle = '#fff';
+                ctx.fillText('Click to Respawn', canvas.width/2, canvas.height/2 + 40);
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        connect();
+        render();
+
+    </script>
+</body>
+</html>

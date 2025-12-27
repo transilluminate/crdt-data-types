@@ -72,9 +72,5 @@ let merged_gc = GCounter::merge_from_readers(&[reader1, reader2]).unwrap();
 
 ---
 
-## Future Roadmap
-We are currently in Phase 3. Future optimizations include:
-1. **Lane Partitioning**: Multi-threaded parallel merging using `SeaHash` node affinity.
-
 ## License
 MIT
