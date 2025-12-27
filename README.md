@@ -2,6 +2,8 @@
 
 A high-performance library of Conflict-free Replicated Data Types (CRDTs) built on [Cap'n Proto](https://capnproto.org/) for zero-copy deserialization, with a native **JSON-first gear** for seamless Web API integration.
 
+Includes a [demo-server](demo-server/README.md) with a rogue-like game to demonstrate CRDT merge ops. See how long you can survive! ⚔️
+
 ## The "Two-Gear" Strategy
 
 This library is designed to support different performance requirements by providing two optimized integration pathways ("gears").
