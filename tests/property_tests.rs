@@ -6,9 +6,13 @@ use proptest::prelude::*;
 // ============================================================================
 
 fn arb_gcounter() -> impl Strategy<Value = GCounter> {
-    prop::collection::hash_map("[a-z]", 0i64..1000i64, 0..10).prop_map(|m| GCounter {
-        counters: m,
-        vclock: VectorClock::new(),
+    prop::collection::hash_map("[a-z]", 0i64..1000i64, 0..10).prop_map(|m| {
+        let mut counters: Vec<_> = m.into_iter().collect();
+        counters.sort_by(|a, b| a.0.cmp(&b.0));
+        GCounter {
+            counters,
+            vclock: VectorClock::new(),
+        }
     })
 }
 
@@ -33,7 +37,9 @@ fn arb_pncounter() -> impl Strategy<Value = PNCounter> {
 fn arb_gset() -> impl Strategy<Value = GSet<String>> {
     prop::collection::hash_set("[a-z]", 0..10).prop_map(|s| {
         let mut gs = GSet::new();
-        gs.elements = s;
+        let mut elements: Vec<_> = s.into_iter().collect();
+        elements.sort();
+        gs.elements = elements;
         gs
     })
 }
@@ -354,6 +360,18 @@ proptest! {
     }
 
     #[test]
+    fn gset_zero_copy_equivalence(a in arb_gset(), b in arb_gset()) {
+        let mut expected = a.clone();
+        expected.merge(&b);
+        let bytes_a = a.to_capnp_bytes();
+        let bytes_b = b.to_capnp_bytes();
+        let reader_a = GSetReader::<String>::new(&bytes_a);
+        let reader_b = GSetReader::<String>::new(&bytes_b);
+        let actual = GSet::merge_from_readers(&[reader_a, reader_b]).unwrap();
+        prop_assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn orset_zero_copy_equivalence(a in arb_orset(), b in arb_orset()) {
         let mut expected = a.clone();
         expected.merge(&b);
@@ -374,6 +392,18 @@ proptest! {
         let reader_a = LWWMapReader::<String, String>::new(&bytes_a);
         let reader_b = LWWMapReader::<String, String>::new(&bytes_b);
         let actual = LWWMap::merge_from_readers(&[reader_a, reader_b]).unwrap();
+        prop_assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn lwwset_zero_copy_equivalence(a in arb_lwwset(), b in arb_lwwset()) {
+        let mut expected = a.clone();
+        expected.merge(&b);
+        let bytes_a = a.to_capnp_bytes();
+        let bytes_b = b.to_capnp_bytes();
+        let reader_a = LWWSetReader::<String>::new(&bytes_a);
+        let reader_b = LWWSetReader::<String>::new(&bytes_b);
+        let actual = LWWSet::merge_from_readers(&[reader_a, reader_b]).unwrap();
         prop_assert_eq!(actual, expected);
     }
 }

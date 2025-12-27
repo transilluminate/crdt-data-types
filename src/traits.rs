@@ -71,15 +71,3 @@ pub trait Crdt: Clone + Serialize + DeserializeOwned + Send + Sync {
     /// The resulting bytes are optimized for zero-copy reading by `CrdtReader`.
     fn to_capnp_bytes(&self) -> Vec<u8>;
 }
-
-/// Trait for CRDTs that support operation-based replication (delta updates).
-pub trait OpBasedCrdt: Crdt {
-    /// The operation (delta) type for this CRDT.
-    type Op: Clone + Serialize + DeserializeOwned + Send + Sync;
-
-    /// Applies an operation to the current CRDT state.
-    fn apply(&mut self, op: Self::Op) -> Result<(), CrdtError>;
-
-    /// Generates an operation representing the delta between this state and a previous state.
-    fn generate_op(&self, prev: &Self) -> Option<Self::Op>;
-}

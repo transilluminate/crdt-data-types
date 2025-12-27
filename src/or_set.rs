@@ -4,7 +4,7 @@ use crate::vector_clock::VectorClock;
 use capnp::message::{Builder, HeapAllocator, ReaderOptions};
 use capnp::serialize;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::hash::Hash;
 
 use serde::de::DeserializeOwned;
@@ -24,25 +24,78 @@ use serde::de::DeserializeOwned;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "T: Serialize",
-    deserialize = "T: DeserializeOwned + Eq + Hash"
+    deserialize = "T: DeserializeOwned + Eq + Hash + Ord"
 ))]
-pub struct ORSet<T: Eq + Hash> {
-    /// Tracks which elements are "present" and their associated observation IDs.
-    pub elements: HashMap<T, HashSet<(String, u64)>>,
+pub struct ORSet<T: Eq + Hash + Ord> {
+    /// List of (element, set of observations) pairs, sorted by element.
+    #[serde(serialize_with = "serialize_elements", deserialize_with = "deserialize_elements")]
+    pub elements: Vec<(T, HashSet<(String, u64)>)>,
     /// Vector clock representing the causal history of the set.
     pub vclock: VectorClock,
 }
 
-impl<T: Eq + Hash> Default for ORSet<T> {
+fn serialize_elements<S, T>(
+    elements: &Vec<(T, HashSet<(String, u64)>)>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+    T: Serialize,
+{
+    use serde::ser::SerializeMap;
+    let mut map = serializer.serialize_map(Some(elements.len()))?;
+    for (k, v) in elements {
+        map.serialize_entry(k, v)?;
+    }
+    map.end()
+}
+
+type ORSetEntry<T> = (T, HashSet<(String, u64)>);
+
+fn deserialize_elements<'de, D, T>(deserializer: D) -> Result<Vec<ORSetEntry<T>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: DeserializeOwned + Eq + Hash + Ord,
+{
+    struct ElementsVisitor<T>(std::marker::PhantomData<T>);
+
+    impl<'de, T> serde::de::Visitor<'de> for ElementsVisitor<T>
+    where
+        T: DeserializeOwned + Eq + Hash + Ord,
+    {
+        type Value = Vec<ORSetEntry<T>>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a map of elements to observations")
+        }
+
+        fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+        where
+            M: serde::de::MapAccess<'de>,
+        {
+            let mut elements: Vec<ORSetEntry<T>> = Vec::with_capacity(access.size_hint().unwrap_or(0));
+            while let Some((key, value)) = access.next_entry()? {
+                elements.push((key, value));
+            }
+            // Sort to maintain invariant
+            elements.sort_by(|a, b| a.0.cmp(&b.0));
+            Ok(elements)
+        }
+    }
+
+    deserializer.deserialize_map(ElementsVisitor(std::marker::PhantomData))
+}
+
+impl<T: Eq + Hash + Ord> Default for ORSet<T> {
     fn default() -> Self {
         Self {
-            elements: HashMap::new(),
+            elements: Vec::new(),
             vclock: VectorClock::new(),
         }
     }
 }
 
-impl<T: Eq + Hash> ORSet<T> {
+impl<T: Eq + Hash + Ord> ORSet<T> {
     /// Creates a new, empty OR-Set.
     pub fn new() -> Self {
         Self::default()
@@ -51,7 +104,7 @@ impl<T: Eq + Hash> ORSet<T> {
 
 impl<T> ORSet<T>
 where
-    T: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
+    T: Clone + Eq + Hash + Ord + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
 {
     /// Adds an element to the set.
     ///
@@ -61,10 +114,17 @@ where
     pub fn insert(&mut self, node_id: &str, element: T) {
         self.vclock.increment(node_id);
         let id = self.vclock.clocks.get(node_id).copied().unwrap_or((0, 0));
-        self.elements
-            .entry(element)
-            .or_insert_with(HashSet::new)
-            .insert((node_id.to_string(), id.0));
+        
+        match self.elements.binary_search_by(|(e, _)| e.cmp(&element)) {
+            Ok(idx) => {
+                self.elements[idx].1.insert((node_id.to_string(), id.0));
+            }
+            Err(idx) => {
+                let mut obs = HashSet::new();
+                obs.insert((node_id.to_string(), id.0));
+                self.elements.insert(idx, (element, obs));
+            }
+        }
     }
 
     /// Removes an element from the set by clearing its observations.
@@ -72,13 +132,14 @@ where
     /// # Arguments
     /// * `element` - The element to remove.
     pub fn remove(&mut self, element: &T) {
-        // In OR-Set, removal simply clears the observed IDs for that element.
-        self.elements.remove(element);
+        if let Ok(idx) = self.elements.binary_search_by(|(e, _)| e.cmp(element)) {
+            self.elements.remove(idx);
+        }
     }
 
     /// Returns true if the set contains the specified element.
     pub fn contains(&self, element: &T) -> bool {
-        self.elements.contains_key(element)
+        self.elements.binary_search_by(|(e, _)| e.cmp(element)).is_ok()
     }
 
     /// Returns the number of elements in the set.
@@ -93,7 +154,7 @@ where
 
     /// Iterator over the elements currently in the set.
     pub fn iter(&self) -> impl Iterator<Item = &T> {
-        self.elements.keys()
+        self.elements.iter().map(|(e, _)| e)
     }
 
     /// Merges another OR-Set into this one.
@@ -101,55 +162,105 @@ where
     /// For each element, the merged set contains the union of the observed IDs,
     /// but only those that are not causally overshadowed by a removal.
     pub fn merge(&mut self, other: &Self) {
-        let mut new_elements = HashMap::new();
+        let mut new_elements = Vec::with_capacity(self.elements.len() + other.elements.len());
+        let mut i = 0;
+        let mut j = 0;
 
-        // 1. Combine all observed IDs from both sets
-        let all_keys: HashSet<_> = self
-            .elements
-            .keys()
-            .chain(other.elements.keys())
-            .cloned()
-            .collect();
+        while i < self.elements.len() && j < other.elements.len() {
+            let (k1, v1) = &self.elements[i];
+            let (k2, v2) = &other.elements[j];
 
-        for key in all_keys {
-            let mut merged_ids = HashSet::new();
-
-            if let Some(ids) = self.elements.get(&key) {
-                for id in ids {
-                    let other_version =
-                        other.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
-                    if id.1 > other_version {
-                        merged_ids.insert(id.clone());
-                    } else if other
-                        .elements
-                        .get(&key)
-                        .map(|other_ids| other_ids.contains(id))
-                        .unwrap_or(false)
-                    {
-                        merged_ids.insert(id.clone());
+            match k1.cmp(k2) {
+                std::cmp::Ordering::Less => {
+                    // Element only in self. Check if it was removed in other.
+                    let mut kept_ids = HashSet::new();
+                    for id in v1 {
+                        let other_version = other.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
+                        // Keep if not observed by other (meaning other hasn't seen this add yet)
+                        // OR if other has seen it but it's still in other (not possible here as k1 < k2)
+                        // Actually, if it's not in other, we check if other *could* have seen it.
+                        if id.1 > other_version {
+                            kept_ids.insert(id.clone());
+                        }
                     }
+                    if !kept_ids.is_empty() {
+                        new_elements.push((k1.clone(), kept_ids));
+                    }
+                    i += 1;
+                }
+                std::cmp::Ordering::Greater => {
+                    // Element only in other. Check if it was removed in self.
+                    let mut kept_ids = HashSet::new();
+                    for id in v2 {
+                        let self_version = self.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
+                        if id.1 > self_version {
+                            kept_ids.insert(id.clone());
+                        }
+                    }
+                    if !kept_ids.is_empty() {
+                        new_elements.push((k2.clone(), kept_ids));
+                    }
+                    j += 1;
+                }
+                std::cmp::Ordering::Equal => {
+                    // Element in both. Merge observations.
+                    let mut merged_ids = HashSet::new();
+                    
+                    // Process IDs from self
+                    for id in v1 {
+                        let other_version = other.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
+                        if id.1 > other_version || v2.contains(id) {
+                            merged_ids.insert(id.clone());
+                        }
+                    }
+                    
+                    // Process IDs from other
+                    for id in v2 {
+                        let self_version = self.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
+                        if id.1 > self_version || v1.contains(id) {
+                            merged_ids.insert(id.clone());
+                        }
+                    }
+                    
+                    if !merged_ids.is_empty() {
+                        new_elements.push((k1.clone(), merged_ids));
+                    }
+                    i += 1;
+                    j += 1;
                 }
             }
+        }
 
-            if let Some(ids) = other.elements.get(&key) {
-                for id in ids {
-                    let self_version = self.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
-                    if id.1 > self_version {
-                        merged_ids.insert(id.clone());
-                    } else if self
-                        .elements
-                        .get(&key)
-                        .map(|self_ids| self_ids.contains(id))
-                        .unwrap_or(false)
-                    {
-                        merged_ids.insert(id.clone());
-                    }
+        // Process remaining elements in self
+        while i < self.elements.len() {
+            let (k1, v1) = &self.elements[i];
+            let mut kept_ids = HashSet::new();
+            for id in v1 {
+                let other_version = other.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
+                if id.1 > other_version {
+                    kept_ids.insert(id.clone());
                 }
             }
-
-            if !merged_ids.is_empty() {
-                new_elements.insert(key, merged_ids);
+            if !kept_ids.is_empty() {
+                new_elements.push((k1.clone(), kept_ids));
             }
+            i += 1;
+        }
+
+        // Process remaining elements in other
+        while j < other.elements.len() {
+            let (k2, v2) = &other.elements[j];
+            let mut kept_ids = HashSet::new();
+            for id in v2 {
+                let self_version = self.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
+                if id.1 > self_version {
+                    kept_ids.insert(id.clone());
+                }
+            }
+            if !kept_ids.is_empty() {
+                new_elements.push((k2.clone(), kept_ids));
+            }
+            j += 1;
         }
 
         self.elements = new_elements;
@@ -166,72 +277,29 @@ pub struct ORSetReader<'a, T> {
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<'a, T: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static>
-    ORSetReader<'a, T>
-{
+impl<'a, T> ORSetReader<'a, T> {
     pub fn new(bytes: &'a [u8]) -> Self {
         Self {
             bytes,
             _phantom: std::marker::PhantomData,
         }
     }
-
-    fn to_orset(&self) -> Result<ORSet<T>, CrdtError> {
-        let reader = serialize::read_message(self.bytes, ReaderOptions::new())
-            .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
-        let orset = reader
-            .get_root::<orset_capnp::or_set::Reader>()
-            .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
-
-        let mut elements = HashMap::new();
-        let entries = orset
-            .get_elements()
-            .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
-
-        for entry in entries {
-            let entry: orset_capnp::or_set::element::Reader = entry;
-            let item_bytes = entry
-                .get_element()
-                .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
-            let element: T = bincode::deserialize(item_bytes)
-                .map_err(|e: bincode::Error| CrdtError::Deserialization(e.to_string()))?;
-
-            let mut ids = HashSet::new();
-            let id_list = entry
-                .get_ids()
-                .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
-            for id_entry in id_list {
-                let id_entry: orset_capnp::or_set::id_entry::Reader = id_entry;
-                let node_id = id_entry
-                    .get_node_id()
-                    .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?
-                    .to_string()
-                    .map_err(|e: std::str::Utf8Error| CrdtError::Deserialization(e.to_string()))?;
-                ids.insert((node_id, id_entry.get_counter()));
-            }
-            elements.insert(element, ids);
-        }
-
-        let vclock = if orset.has_vclock() {
-            let vc_bytes = orset
-                .get_vclock()
-                .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
-            VectorClock::merge_from_readers(&[crate::vector_clock::VectorClockReader::new(
-                vc_bytes,
-            )])?
-        } else {
-            VectorClock::new()
-        };
-
-        Ok(ORSet { elements, vclock })
-    }
 }
 
-impl<'a, T: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static>
-    CrdtReader<'a> for ORSetReader<'a, T>
+impl<'a, T> CrdtReader<'a> for ORSetReader<'a, T>
+where
+    T: DeserializeOwned + Eq + Hash + Ord + Send + Sync,
 {
     fn is_empty(&self) -> Result<bool, CrdtError> {
-        Ok(self.to_orset()?.elements.is_empty())
+        let reader = serialize::read_message(self.bytes, ReaderOptions::new())
+            .map_err(|e| CrdtError::Deserialization(e.to_string()))?;
+        let orset = reader
+            .get_root::<orset_capnp::or_set::Reader>()
+            .map_err(|e| CrdtError::Deserialization(e.to_string()))?;
+        let elements = orset
+            .get_elements()
+            .map_err(|e| CrdtError::Deserialization(e.to_string()))?;
+        Ok(elements.len() == 0)
     }
 }
 
@@ -239,8 +307,9 @@ impl<'a, T: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + 
 // CRDT Trait Implementation
 // ============================================================================
 
-impl<T: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static> Crdt
-    for ORSet<T>
+impl<T> Crdt for ORSet<T>
+where
+    T: Clone + Eq + Hash + Ord + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
 {
     type Reader<'a> = ORSetReader<'a, T>;
 
@@ -249,102 +318,53 @@ impl<T: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync
         for reader in readers {
             let msg_reader = serialize::read_message(reader.bytes, ReaderOptions::new())
                 .map_err(|e| CrdtError::Deserialization(e.to_string()))?;
-            let orset = msg_reader
+            let orset_reader = msg_reader
                 .get_root::<orset_capnp::or_set::Reader>()
                 .map_err(|e| CrdtError::Deserialization(e.to_string()))?;
 
-            let other_vclock = if orset.has_vclock() {
-                let vc_bytes = orset
+            // Deserialize to temp ORSet
+            let mut temp_set = ORSet::new();
+            
+            // VClock
+            if orset_reader.has_vclock() {
+                let vc_bytes = orset_reader
                     .get_vclock()
                     .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
-                VectorClock::merge_from_readers(&[crate::vector_clock::VectorClockReader::new(
-                    vc_bytes,
-                )])?
-            } else {
-                VectorClock::new()
-            };
+                temp_set.vclock = VectorClock::merge_from_readers(&[crate::vector_clock::VectorClockReader::new(vc_bytes)])?;
+            }
 
-            let entries = orset
+            // Elements
+            let elements_reader = orset_reader
                 .get_elements()
-                .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
+                .map_err(|e| CrdtError::Deserialization(e.to_string()))?;
 
-            let mut other_keys = HashSet::new();
-
-            for entry in entries {
-                let item_bytes = entry
+            for element_entry in elements_reader {
+                let element_bytes = element_entry
                     .get_element()
-                    .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
-                let element: T = bincode::deserialize(item_bytes)
-                    .map_err(|e: bincode::Error| CrdtError::Deserialization(e.to_string()))?;
-
-                other_keys.insert(element.clone());
-
-                let mut other_ids = HashSet::new();
-                let id_list = entry
+                    .map_err(|e| CrdtError::Deserialization(e.to_string()))?;
+                let element: T = serde_json::from_slice(element_bytes)
+                    .map_err(|e| CrdtError::Deserialization(e.to_string()))?;
+                
+                let mut obs = HashSet::new();
+                let ids = element_entry
                     .get_ids()
-                    .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
-                for id_entry in id_list {
+                    .map_err(|e| CrdtError::Deserialization(e.to_string()))?;
+                
+                for id_entry in ids {
                     let node_id = id_entry
                         .get_node_id()
-                        .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?
-                        .to_str()
-                        .map_err(|e: std::str::Utf8Error| {
-                            CrdtError::Deserialization(e.to_string())
-                        })?;
-                    other_ids.insert((node_id.to_string(), id_entry.get_counter()));
+                        .map_err(|e| CrdtError::Deserialization(e.to_string()))?
+                        .to_string()
+                        .map_err(|e| CrdtError::Deserialization(e.to_string()))?;
+                    let counter = id_entry.get_counter();
+                    obs.insert((node_id, counter));
                 }
-
-                let merged_ids = result
-                    .elements
-                    .entry(element.clone())
-                    .or_insert_with(HashSet::new);
-
-                // Keep existing IDs if not overshadowed by other ORSet's vclock OR if they exist in other's IDs
-                merged_ids.retain(|id| {
-                    let other_version =
-                        other_vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
-                    id.1 > other_version || other_ids.contains(id)
-                });
-
-                // Add other's IDs if not overshadowed by result's vclock OR if they already exist in result
-                // (Note: we don't need a formal contain check if we just check overshadowed)
-                for id in other_ids {
-                    let self_version = result
-                        .vclock
-                        .clocks
-                        .get(&id.0)
-                        .map(|(c, _)| *c)
-                        .unwrap_or(0);
-                    if id.1 > self_version || merged_ids.contains(&id) {
-                        merged_ids.insert(id);
-                    }
-                }
-
-                if merged_ids.is_empty() {
-                    result.elements.remove(&element);
-                }
+                temp_set.elements.push((element, obs));
             }
+            // Ensure sorted invariant
+            temp_set.elements.sort_by(|a, b| a.0.cmp(&b.0));
 
-            // Also check for elements in result that were NOT in other_keys
-            // These might be overshadowed by other's vclock (removals)
-            let mut keys_to_remove = Vec::new();
-            for (element, ids) in &mut result.elements {
-                if !other_keys.contains(element) {
-                    ids.retain(|id| {
-                        let other_version =
-                            other_vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
-                        id.1 > other_version
-                    });
-                    if ids.is_empty() {
-                        keys_to_remove.push(element.clone());
-                    }
-                }
-            }
-            for key in keys_to_remove {
-                result.elements.remove(&key);
-            }
-
-            result.vclock.merge(&other_vclock);
+            result.merge(&temp_set);
         }
         Ok(result)
     }
@@ -354,18 +374,20 @@ impl<T: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync
         {
             let mut orset = message.init_root::<orset_capnp::or_set::Builder>();
             let mut elements = orset.reborrow().init_elements(self.elements.len() as u32);
-            for (idx, (element, ids)) in self.elements.iter().enumerate() {
-                let mut entry = elements.reborrow().get(idx as u32);
-                let bytes = bincode::serialize(element).expect("ORSet element serialization fail");
-                entry.set_element(&bytes);
-
-                let mut ids_builder = entry.init_ids(ids.len() as u32);
-                for (j, (node_id, counter)) in ids.iter().enumerate() {
-                    let mut id_entry = ids_builder.reborrow().get(j as u32);
+            
+            for (i, (element, obs)) in self.elements.iter().enumerate() {
+                let mut element_entry = elements.reborrow().get(i as u32);
+                let element_bytes = serde_json::to_vec(element).expect("Failed to serialize element");
+                element_entry.set_element(&element_bytes);
+                
+                let mut ids = element_entry.init_ids(obs.len() as u32);
+                for (j, (node_id, counter)) in obs.iter().enumerate() {
+                    let mut id_entry = ids.reborrow().get(j as u32);
                     id_entry.set_node_id(node_id.as_str().into());
                     id_entry.set_counter(*counter);
                 }
             }
+            
             let vclock_bytes = self.vclock.to_capnp_bytes();
             orset.set_vclock(&vclock_bytes);
         }

@@ -23,17 +23,17 @@ use serde::de::DeserializeOwned;
 /// - **Convergence**: All replicas will eventually reach the same state.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
-    serialize = "K: Serialize + Eq + Hash, V: Serialize + Eq + Hash",
-    deserialize = "K: DeserializeOwned + Eq + Hash, V: DeserializeOwned + Eq + Hash"
+    serialize = "K: Serialize + Eq + Hash + Ord, V: Serialize + Eq + Hash + Ord",
+    deserialize = "K: DeserializeOwned + Eq + Hash + Ord, V: DeserializeOwned + Eq + Hash + Ord"
 ))]
-pub struct ORMap<K: Eq + Hash, V: Eq + Hash> {
+pub struct ORMap<K: Eq + Hash + Ord, V: Eq + Hash + Ord> {
     /// Internal storage using an OR-Set of (K, V) tuples.
     pub elements: ORSet<(K, V)>,
     /// Vector clock representing the causal history of the map.
     pub vclock: VectorClock,
 }
 
-impl<K: Eq + Hash, V: Eq + Hash> Default for ORMap<K, V> {
+impl<K: Eq + Hash + Ord, V: Eq + Hash + Ord> Default for ORMap<K, V> {
     fn default() -> Self {
         Self {
             elements: ORSet::new(),
@@ -44,8 +44,8 @@ impl<K: Eq + Hash, V: Eq + Hash> Default for ORMap<K, V> {
 
 impl<K, V> ORMap<K, V>
 where
-    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
-    V: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
+    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static + Ord,
+    V: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static + Ord,
 {
     /// Creates a new, empty OR-Map.
     pub fn new() -> Self {
@@ -104,15 +104,15 @@ where
 // Zero-Copy Reader
 // ============================================================================
 
-pub struct ORMapReader<'a, K: Eq + Hash, V: Eq + Hash> {
+pub struct ORMapReader<'a, K: Eq + Hash + Ord, V: Eq + Hash + Ord> {
     bytes: &'a [u8],
     _phantom: std::marker::PhantomData<(K, V)>,
 }
 
 impl<'a, K, V> ORMapReader<'a, K, V>
 where
-    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
-    V: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
+    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static + Ord,
+    V: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static + Ord,
 {
     pub fn new(bytes: &'a [u8]) -> Self {
         Self {
@@ -150,8 +150,8 @@ where
 
 impl<'a, K, V> CrdtReader<'a> for ORMapReader<'a, K, V>
 where
-    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
-    V: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
+    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static + Ord,
+    V: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static + Ord,
 {
     fn is_empty(&self) -> Result<bool, CrdtError> {
         Ok(self.to_map()?.elements.is_empty())
@@ -164,8 +164,8 @@ where
 
 impl<K, V> Crdt for ORMap<K, V>
 where
-    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
-    V: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static,
+    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static + Ord,
+    V: Clone + Eq + Hash + Serialize + DeserializeOwned + Default + Send + Sync + 'static + Ord,
 {
     type Reader<'a> = ORMapReader<'a, K, V>;
 

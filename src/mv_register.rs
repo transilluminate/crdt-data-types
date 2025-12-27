@@ -78,14 +78,13 @@ impl<T: Clone + Eq + Hash + Serialize + DeserializeOwned + Send + Sync + 'static
                 for id in ids {
                     let other_version =
                         other.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
-                    if id.1 > other_version {
-                        merged_ids.insert(id.clone());
-                    } else if other
+                    let in_other = other
                         .entries
                         .get(&val)
                         .map(|other_ids| other_ids.contains(id))
-                        .unwrap_or(false)
-                    {
+                        .unwrap_or(false);
+
+                    if id.1 > other_version || in_other {
                         merged_ids.insert(id.clone());
                     }
                 }
@@ -94,14 +93,13 @@ impl<T: Clone + Eq + Hash + Serialize + DeserializeOwned + Send + Sync + 'static
             if let Some(ids) = other.entries.get(&val) {
                 for id in ids {
                     let self_version = self.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
-                    if id.1 > self_version {
-                        merged_ids.insert(id.clone());
-                    } else if self
+                    let in_self = self
                         .entries
                         .get(&val)
                         .map(|self_ids| self_ids.contains(id))
-                        .unwrap_or(false)
-                    {
+                        .unwrap_or(false);
+
+                    if id.1 > self_version || in_self {
                         merged_ids.insert(id.clone());
                     }
                 }

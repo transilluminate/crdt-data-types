@@ -1,5 +1,6 @@
 use crdt_data_types::*;
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use std::hint::black_box;
+use criterion::{criterion_group, criterion_main, Criterion};
 
 fn setup_orsets(n: usize) -> (ORSet<String>, ORSet<String>) {
     let mut a = ORSet::new();

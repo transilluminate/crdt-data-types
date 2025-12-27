@@ -18,7 +18,7 @@ pub mod traits;
 pub mod vector_clock;
 
 // Re-export core traits
-pub use traits::{Crdt, CrdtError, CrdtReader, OpBasedCrdt};
+pub use traits::{Crdt, CrdtError, CrdtReader};
 
 // Re-export types as they are implemented
 pub use bridge::SerdeCapnpBridge;

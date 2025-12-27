@@ -4,7 +4,7 @@ use crate::vector_clock::VectorClock;
 use capnp::message::{Builder, HeapAllocator, ReaderOptions};
 use capnp::serialize;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::collections::HashMap;
+use std::cmp::Ordering;
 use std::hash::Hash;
 
 /// LWW-Map: A Last-Write-Wins Map CRDT.
@@ -20,25 +20,82 @@ use std::hash::Hash;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "K: Serialize, V: Serialize",
-    deserialize = "K: DeserializeOwned + Eq + Hash, V: DeserializeOwned"
+    deserialize = "K: DeserializeOwned + Eq + Hash + Ord, V: DeserializeOwned"
 ))]
-pub struct LWWMap<K: Eq + Hash, V> {
+pub struct LWWMap<K: Eq + Hash + Ord, V> {
     /// Internal storage for map entries: key -> (value, timestamp, node_id).
-    pub entries: HashMap<K, (V, u64, String)>,
+    #[serde(serialize_with = "serialize_entries", deserialize_with = "deserialize_entries")]
+    pub entries: Vec<(K, (V, u64, String))>,
     /// Vector clock representing the causal history of the map.
     pub vclock: VectorClock,
 }
 
-impl<K: Eq + Hash, V> Default for LWWMap<K, V> {
+fn serialize_entries<S, K, V>(
+    entries: &Vec<(K, (V, u64, String))>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+    K: Serialize,
+    V: Serialize,
+{
+    use serde::ser::SerializeMap;
+    let mut map = serializer.serialize_map(Some(entries.len()))?;
+    for (k, v) in entries {
+        map.serialize_entry(k, v)?;
+    }
+    map.end()
+}
+
+type LWWMapEntry<K, V> = (K, (V, u64, String));
+
+fn deserialize_entries<'de, D, K, V>(deserializer: D) -> Result<Vec<LWWMapEntry<K, V>>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    K: DeserializeOwned + Eq + Hash + Ord,
+    V: DeserializeOwned,
+{
+    struct EntriesVisitor<K, V>(std::marker::PhantomData<(K, V)>);
+
+    impl<'de, K, V> serde::de::Visitor<'de> for EntriesVisitor<K, V>
+    where
+        K: DeserializeOwned + Eq + Hash + Ord,
+        V: DeserializeOwned,
+    {
+        type Value = Vec<LWWMapEntry<K, V>>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a map of entries")
+        }
+
+        fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+        where
+            M: serde::de::MapAccess<'de>,
+        {
+            let mut entries: Vec<LWWMapEntry<K, V>> =
+                Vec::with_capacity(access.size_hint().unwrap_or(0));
+            while let Some((key, value)) = access.next_entry()? {
+                entries.push((key, value));
+            }
+            // Sort to maintain invariant
+            entries.sort_by(|a, b| a.0.cmp(&b.0));
+            Ok(entries)
+        }
+    }
+
+    deserializer.deserialize_map(EntriesVisitor(std::marker::PhantomData))
+}
+
+impl<K: Eq + Hash + Ord, V> Default for LWWMap<K, V> {
     fn default() -> Self {
         Self {
-            entries: HashMap::new(),
+            entries: Vec::new(),
             vclock: VectorClock::new(),
         }
     }
 }
 
-impl<K: Eq + Hash, V> LWWMap<K, V> {
+impl<K: Eq + Hash + Ord, V> LWWMap<K, V> {
     /// Creates a new, empty LWW-Map.
     pub fn new() -> Self {
         Self::default()
@@ -47,7 +104,7 @@ impl<K: Eq + Hash, V> LWWMap<K, V> {
 
 impl<K, V> LWWMap<K, V>
 where
-    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Send + Sync + 'static,
+    K: Clone + Eq + Hash + Ord + Serialize + DeserializeOwned + Send + Sync + 'static,
     V: Clone + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
     /// Inserts or updates a value for a specific key.
@@ -55,24 +112,27 @@ where
     /// The update is applied only if the new timestamp is higher than the current
     /// one for that key, or if they are equal and the new node_id is lexicographically greater.
     pub fn insert(&mut self, node_id: &str, key: K, value: V, timestamp: u64) {
-        let node_id = node_id.to_string();
-        let current_entry = self.entries.get(&key);
-
-        let update = match current_entry {
-            Some((val, ts, nid)) => {
-                timestamp > *ts
-                    || (timestamp == *ts && node_id > *nid)
+        let node_id_str = node_id.to_string();
+        
+        match self.entries.binary_search_by(|(k, _)| k.cmp(&key)) {
+            Ok(idx) => {
+                let (_, (val, ts, nid)) = &self.entries[idx];
+                let update = timestamp > *ts
+                    || (timestamp == *ts && node_id_str > *nid)
                     || (timestamp == *ts
-                        && node_id == *nid
+                        && node_id_str == *nid
                         && bincode::serialize(&value).unwrap_or_default()
-                            > bincode::serialize(val).unwrap_or_default())
+                            > bincode::serialize(val).unwrap_or_default());
+                
+                if update {
+                    self.entries[idx] = (key, (value, timestamp, node_id_str));
+                    self.vclock.increment(node_id);
+                }
             }
-            None => true,
-        };
-        if update {
-            self.entries
-                .insert(key, (value, timestamp, node_id.clone()));
-            self.vclock.increment(&node_id);
+            Err(idx) => {
+                self.entries.insert(idx, (key, (value, timestamp, node_id_str)));
+                self.vclock.increment(node_id);
+            }
         }
     }
 
@@ -82,32 +142,68 @@ where
     /// commutative in all scenarios. This simple implementation clears
     /// local state.
     pub fn remove(&mut self, key: &K) {
-        self.entries.remove(key);
+        if let Ok(idx) = self.entries.binary_search_by(|(k, _)| k.cmp(key)) {
+            self.entries.remove(idx);
+        }
     }
 
     /// Returns the value associated with the key, if any.
     pub fn get(&self, key: &K) -> Option<&V> {
-        self.entries.get(key).map(|(v, _, _)| v)
+        self.entries
+            .binary_search_by(|(k, _)| k.cmp(key))
+            .ok()
+            .map(|idx| &self.entries[idx].1.0)
     }
 
     /// Merges another LWW-Map into this one.
     pub fn merge(&mut self, other: &Self) {
-        for (key, other_entry) in &other.entries {
-            let update = match self.entries.get(key) {
-                Some((val, ts, nid)) => {
-                    other_entry.1 > *ts
-                        || (other_entry.1 == *ts && other_entry.2 > *nid)
-                        || (other_entry.1 == *ts
-                            && other_entry.2 == *nid
-                            && bincode::serialize(&other_entry.0).unwrap_or_default()
-                                > bincode::serialize(val).unwrap_or_default())
+        let mut result = Vec::with_capacity(self.entries.len() + other.entries.len());
+        let mut i = 0;
+        let mut j = 0;
+
+        while i < self.entries.len() && j < other.entries.len() {
+            let (k1, (v1, ts1, nid1)) = &self.entries[i];
+            let (k2, (v2, ts2, nid2)) = &other.entries[j];
+
+            match k1.cmp(k2) {
+                Ordering::Less => {
+                    result.push(self.entries[i].clone());
+                    i += 1;
                 }
-                None => true,
-            };
-            if update {
-                self.entries.insert(key.clone(), other_entry.clone());
+                Ordering::Greater => {
+                    result.push(other.entries[j].clone());
+                    j += 1;
+                }
+                Ordering::Equal => {
+                    // Conflict resolution
+                    let update = *ts2 > *ts1
+                        || (*ts2 == *ts1 && nid2 > nid1)
+                        || (*ts2 == *ts1
+                            && nid2 == nid1
+                            && bincode::serialize(v2).unwrap_or_default()
+                                > bincode::serialize(v1).unwrap_or_default());
+                    
+                    if update {
+                        result.push(other.entries[j].clone());
+                    } else {
+                        result.push(self.entries[i].clone());
+                    }
+                    i += 1;
+                    j += 1;
+                }
             }
         }
+
+        while i < self.entries.len() {
+            result.push(self.entries[i].clone());
+            i += 1;
+        }
+        while j < other.entries.len() {
+            result.push(other.entries[j].clone());
+            j += 1;
+        }
+
+        self.entries = result;
         self.vclock.merge(&other.vclock);
     }
 }
@@ -116,14 +212,14 @@ where
 // Zero-Copy Reader
 // ============================================================================
 
-pub struct LWWMapReader<'a, K: Eq + Hash, V> {
+pub struct LWWMapReader<'a, K: Eq + Hash + Ord, V> {
     bytes: &'a [u8],
     _phantom: std::marker::PhantomData<(K, V)>,
 }
 
 impl<'a, K, V> LWWMapReader<'a, K, V>
 where
-    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Send + Sync + 'static,
+    K: Clone + Eq + Hash + Ord + Serialize + DeserializeOwned + Send + Sync + 'static,
     V: Clone + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
     pub fn new(bytes: &'a [u8]) -> Self {
@@ -140,7 +236,7 @@ where
             .get_root::<lww_map_capnp::lww_map::Reader>()
             .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
 
-        let mut entries = HashMap::new();
+        let mut entries = Vec::new();
         let entries_list = lww_map
             .get_entries()
             .map_err(|e: capnp::Error| CrdtError::Deserialization(e.to_string()))?;
@@ -165,8 +261,10 @@ where
                 .to_string()
                 .map_err(|e: std::str::Utf8Error| CrdtError::Deserialization(e.to_string()))?;
 
-            entries.insert(key, (value, timestamp, node_id));
+            entries.push((key, (value, timestamp, node_id)));
         }
+        // Sort to maintain invariant
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
 
         let vclock = if lww_map.has_vclock() {
             let vc_bytes = lww_map
@@ -185,7 +283,7 @@ where
 
 impl<'a, K, V> CrdtReader<'a> for LWWMapReader<'a, K, V>
 where
-    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Send + Sync + 'static,
+    K: Clone + Eq + Hash + Ord + Serialize + DeserializeOwned + Send + Sync + 'static,
     V: Clone + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
     fn is_empty(&self) -> Result<bool, CrdtError> {
@@ -199,7 +297,7 @@ where
 
 impl<K, V> Crdt for LWWMap<K, V>
 where
-    K: Clone + Eq + Hash + Serialize + DeserializeOwned + Send + Sync + 'static,
+    K: Clone + Eq + Hash + Ord + Serialize + DeserializeOwned + Send + Sync + 'static,
     V: Clone + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
     type Reader<'a> = LWWMapReader<'a, K, V>;
