@@ -30,6 +30,10 @@ Survive as long as you can against the endless horde of monsters!
   - As you collect more coins, the monster spawn rate increases!
   - Swords are rare items (max 5 on the map at once).
 
+## Screenshot
+
+<img width="2276" height="1656" alt="Demo CDRT Game" src="https://github.com/user-attachments/assets/f8be00b8-4186-4075-9d14-7fed9fc680bb" />
+
 ## Running the Game
 
 1. **Start the Server**:
