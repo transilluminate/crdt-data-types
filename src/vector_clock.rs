@@ -18,6 +18,24 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 /// # Causal Properties
 /// - If `vc1 < vc2`, then `vc1` causally precedes `vc2`.
 /// - If `vc1` and `vc2` are incomparable, they are concurrent.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::VectorClock;
+///
+/// let mut vc1 = VectorClock::new();
+/// vc1.increment("node_a");
+///
+/// let mut vc2 = VectorClock::new();
+/// vc2.increment("node_b");
+///
+/// assert!(!vc1.happens_before(&vc2)); // Concurrent
+/// assert!(!vc2.happens_before(&vc1)); // Concurrent
+///
+/// vc1.merge(&vc2);
+/// assert!(vc2.happens_before(&vc1)); // vc2 is now causally before vc1
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct VectorClock {
     /// Map of node_id -> (logical_counter, epoch_seconds)

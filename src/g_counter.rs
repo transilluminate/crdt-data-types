@@ -11,10 +11,32 @@ use serde::{Deserialize, Serialize};
 /// increments across multiple nodes. Each node maintains its own counter value,
 /// and the total count is the sum of all node-specific counters.
 ///
+/// # Key Properties
+///
+/// - **Grow-only**: The counter can only increase. Decrements are not supported.
+/// - **Distributed**: Multiple replicas can increment independently.
+/// - **Mergeable**: Merging takes the maximum value for each node ID.
+///
 /// # Algebraic Properties
-/// - **Monotonicity**: The value can only increase.
-/// - **Commutativity**: Merge order does not affect the final sum.
-/// - **Idempotence**: Merging the same state multiple times has no effect on the sum.
+///
+/// - **Commutativity**: Yes.
+/// - **Associativity**: Yes.
+/// - **Idempotence**: Yes.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::GCounter;
+///
+/// let mut gc1 = GCounter::new();
+/// gc1.increment("node_a", 10);
+///
+/// let mut gc2 = GCounter::new();
+/// gc2.increment("node_b", 20);
+///
+/// gc1.merge(&gc2);
+/// assert_eq!(gc1.value(), 30);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct GCounter {
     /// List of (node_id, increment count) pairs, sorted by node_id.

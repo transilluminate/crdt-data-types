@@ -14,6 +14,8 @@ pub mod mv_register;
 pub mod or_map;
 pub mod or_set;
 pub mod pn_counter;
+#[cfg(feature = "probabilistic")]
+pub mod probabilistic;
 pub mod traits;
 pub mod vector_clock;
 
@@ -34,10 +36,11 @@ pub use or_set::{ORSet, ORSetReader};
 pub use pn_counter::{PNCounter, PNCounterReader};
 pub use vector_clock::{VectorClock, VectorClockReader};
 
-// Modules for specific CRDTs will be added here
-// pub mod gcounter;
-// pub mod pncounter;
-// ...
+#[cfg(feature = "probabilistic")]
+pub use probabilistic::{
+    CountMinSketch, CountMinSketchReader, HyperLogLog, HyperLogLogReader, RoaringBitmap,
+    RoaringBitmapReader, TDigest, TDigestReader, TopK, TopKReader,
+};
 
 // Include generated Cap'n Proto modules
 pub mod gcounter_capnp {
@@ -45,6 +48,27 @@ pub mod gcounter_capnp {
 }
 pub mod vclock_capnp {
     include!(concat!(env!("OUT_DIR"), "/proto/vclock_capnp.rs"));
+}
+
+#[cfg(feature = "probabilistic")]
+pub mod count_min_sketch_capnp {
+    include!(concat!(env!("OUT_DIR"), "/proto/count_min_sketch_capnp.rs"));
+}
+#[cfg(feature = "probabilistic")]
+pub mod hyperloglog_capnp {
+    include!(concat!(env!("OUT_DIR"), "/proto/hyperloglog_capnp.rs"));
+}
+#[cfg(feature = "probabilistic")]
+pub mod roaring_bitmap_capnp {
+    include!(concat!(env!("OUT_DIR"), "/proto/roaring_bitmap_capnp.rs"));
+}
+#[cfg(feature = "probabilistic")]
+pub mod tdigest_capnp {
+    include!(concat!(env!("OUT_DIR"), "/proto/tdigest_capnp.rs"));
+}
+#[cfg(feature = "probabilistic")]
+pub mod topk_capnp {
+    include!(concat!(env!("OUT_DIR"), "/proto/topk_capnp.rs"));
 }
 pub mod fww_register_capnp {
     include!(concat!(env!("OUT_DIR"), "/proto/fww_register_capnp.rs"));

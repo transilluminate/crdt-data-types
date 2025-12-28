@@ -11,6 +11,13 @@ fn main() {
     config.file("proto/orset.capnp");
     config.file("proto/pncounter.capnp");
     config.file("proto/vclock.capnp");
+    
+    // Probabilistic
+    config.file("proto/count_min_sketch.capnp");
+    config.file("proto/hyperloglog.capnp");
+    config.file("proto/roaring_bitmap.capnp");
+    config.file("proto/tdigest.capnp");
+    config.file("proto/topk.capnp");
 
     config.run().expect("Cap'n Proto compilation failed");
 }

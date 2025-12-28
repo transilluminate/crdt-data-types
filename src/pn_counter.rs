@@ -12,10 +12,29 @@ use serde::{Deserialize, Serialize};
 /// G-Counters: one for increments (positive) and one for decrements (negative).
 /// The total value is the difference between the positive and negative counts.
 ///
+/// # Key Properties
+///
+/// - **Supports Decrements**: Unlike G-Counter, the value can go up and down (and become negative).
+/// - **Composition**: Built from two G-Counters.
+/// - **Mergeable**: Merges the internal positive and negative G-Counters separately.
+///
 /// # Algebraic Properties
-/// - **Commutativity**: Merge order does not affect the final value.
-/// - **Idempotence**: Merging the same state multiple times result in the same value.
-/// - **Convergence**: All replicas eventually reach the same value given the same set of operations.
+///
+/// - **Commutativity**: Yes.
+/// - **Associativity**: Yes.
+/// - **Idempotence**: Yes.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::PNCounter;
+///
+/// let mut pn = PNCounter::new();
+/// pn.increment("node_a", 10);
+/// pn.decrement("node_a", 5);
+///
+/// assert_eq!(pn.value(), 5);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub struct PNCounter {
     /// Internal G-Counter for positive increments.

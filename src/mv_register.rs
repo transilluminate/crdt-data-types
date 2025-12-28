@@ -9,8 +9,39 @@ use std::hash::Hash;
 
 /// MV-Register: A Multi-Value Register CRDT.
 ///
-/// This implementation uses causal tracking (dots) to correctly preserve concurrent
-/// writes and ensure associativity and commutativity.
+/// An MV-Register (Multi-Value Register) retains all concurrently written values.
+/// When multiple replicas write to the register without causal knowledge of each other,
+/// all values are kept. Conflicts are resolved only when a new write causally dominates
+/// the previous ones.
+///
+/// # Key Properties
+///
+/// - **Multi-Value**: Can hold multiple values simultaneously if they are concurrent.
+/// - **Causal History**: Uses vector clocks to track causality and determine which values are obsolete.
+/// - **Conflict Resolution**: Client-side resolution (the client sees all concurrent values and must decide).
+///
+/// # Algebraic Properties
+///
+/// - **Commutativity**: Yes.
+/// - **Associativity**: Yes.
+/// - **Idempotence**: Yes.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::MVRegister;
+///
+/// let mut reg1 = MVRegister::new();
+/// reg1.set("node_a", "value1".to_string());
+///
+/// let mut reg2 = MVRegister::new();
+/// reg2.set("node_b", "value2".to_string());
+///
+/// reg1.merge(&reg2);
+/// let values: Vec<&String> = reg1.entries.keys().collect();
+/// assert!(values.contains(&&"value1".to_string()));
+/// assert!(values.contains(&&"value2".to_string()));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "T: Serialize + Eq + Hash",

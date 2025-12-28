@@ -13,14 +13,32 @@ use serde::de::DeserializeOwned;
 ///
 /// An OR-Set (Observed-Remove Set) allows both addition and removal of elements.
 /// It resolves conflicts by preferring additions over removals in the case of
-/// concurrent operations (add-win semantics). Internally, it tracks each element
-/// with a set of unique identifiers (using a vector clock) that represent the
-/// "observations" of that element.
+/// concurrent operations (Add-Wins semantics).
+///
+/// # Key Properties
+///
+/// - **Add-Wins**: If an element is concurrently added and removed, the addition wins.
+/// - **Unique Tags**: Each addition is tagged with a unique identifier (from the vector clock).
+/// - **Removal**: Removing an element removes all currently observed tags for that element.
 ///
 /// # Algebraic Properties
-/// - **Commutativity**: Merge order does not affect the final set contents.
-/// - **Idempotence**: Merging the same state multiple times is safe.
-/// - **Convergence**: All replicas will eventually reach the same state.
+///
+/// - **Commutativity**: Yes.
+/// - **Associativity**: Yes.
+/// - **Idempotence**: Yes.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::ORSet;
+///
+/// let mut set = ORSet::new();
+/// set.insert("node_a", "apple".to_string());
+/// set.remove(&"apple".to_string());
+/// set.insert("node_b", "apple".to_string()); // Concurrent add
+///
+/// assert!(set.contains(&"apple".to_string()));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "T: Serialize",
@@ -176,9 +194,9 @@ where
                     let mut kept_ids = HashSet::new();
                     for id in v1 {
                         let other_version = other.vclock.clocks.get(&id.0).map(|(c, _)| *c).unwrap_or(0);
-                        // Keep if not observed by other (meaning other hasn't seen this add yet)
-                        // OR if other has seen it but it's still in other (not possible here as k1 < k2)
-                        // Actually, if it's not in other, we check if other *could* have seen it.
+                        // Keep the ID if the other replica hasn't observed this addition yet.
+                        // If the other replica *has* observed this addition (id.1 <= other_version)
+                        // but the element is missing from `other`, it implies `other` has removed it.
                         if id.1 > other_version {
                             kept_ids.insert(id.clone());
                         }

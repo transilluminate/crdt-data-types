@@ -14,10 +14,29 @@ use std::hash::Hash;
 /// or remove operation. It resolves conflicts between concurrent additions
 /// and removals by choosing the operation with the highest timestamp.
 ///
+/// # Key Properties
+///
+/// - **Add/Remove Sets**: Maintains separate sets for additions and removals, each with timestamps.
+/// - **LWW Resolution**: An element is present if its addition timestamp is greater than its removal timestamp.
+/// - **Bias**: Typically biased towards addition in case of timestamp ties (configurable, but usually Add-Wins).
+///
 /// # Algebraic Properties
-/// - **Commutativity**: Merge order does not affect the final set contents.
-/// - **Idempotence**: Merging the same state multiple times is safe.
-/// - **Convergence**: All replicas will eventually reach the same state.
+///
+/// - **Commutativity**: Yes.
+/// - **Associativity**: Yes.
+/// - **Idempotence**: Yes.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::LWWSet;
+///
+/// let mut set = LWWSet::new();
+/// set.insert("node_a", "apple".to_string(), 100);
+/// set.remove("node_b", "apple".to_string(), 50); // Older removal
+///
+/// assert!(set.contains(&"apple".to_string())); // Addition wins (100 > 50)
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "T: Serialize",

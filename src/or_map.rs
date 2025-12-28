@@ -13,14 +13,34 @@ use serde::de::DeserializeOwned;
 /// OR-Map: An Observed-Remove Map CRDT.
 ///
 /// An OR-Map (Observed-Remove Map) is a key-value map that supports both
-/// addition and removal of key-value pairs with add-win semantics.
+/// addition and removal of key-value pairs with Add-Wins semantics.
 /// It treats each key-value pair as an element in an internal OR-Set,
 /// ensuring that concurrent operations resolve consistently.
 ///
+/// # Key Properties
+///
+/// - **Add-Wins**: Concurrent add and remove of the same key-value pair results in the pair being present.
+/// - **Map Semantics**: Stores key-value pairs.
+/// - **Composition**: Built on top of an OR-Set of (Key, Value) tuples.
+///
 /// # Algebraic Properties
-/// - **Commutativity**: Merge order does not affect the final map contents.
-/// - **Idempotence**: Merging the same state multiple times is safe.
-/// - **Convergence**: All replicas will eventually reach the same state.
+///
+/// - **Commutativity**: Yes.
+/// - **Associativity**: Yes.
+/// - **Idempotence**: Yes.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::ORMap;
+///
+/// let mut map = ORMap::new();
+/// map.insert("node_a", "key1".to_string(), "value1".to_string());
+/// map.remove(&"key1".to_string());
+/// map.insert("node_b", "key1".to_string(), "value1".to_string()); // Concurrent add
+///
+/// assert!(map.get_concurrent(&"key1".to_string()).contains(&"value1".to_string()));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "K: Serialize + Eq + Hash + Ord, V: Serialize + Eq + Hash + Ord",

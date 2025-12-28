@@ -13,10 +13,32 @@ use std::hash::Hash;
 /// using Last-Write-Wins (LWW) semantics. This is achieved by storing a timestamp
 /// and node identifier for each key-value pair.
 ///
+/// # Key Properties
+///
+/// - **Map Semantics**: Stores key-value pairs.
+/// - **Per-Key LWW**: Each key's value is determined by the latest timestamp.
+/// - **Add/Update Wins**: Updates with higher timestamps overwrite older ones.
+///
 /// # Algebraic Properties
-/// - **Commutativity**: Merge order does not affect the final map contents.
-/// - **Idempotence**: Merging the same state multiple times is safe.
-/// - **Convergence**: All replicas will eventually reach the same state.
+///
+/// - **Commutativity**: Yes.
+/// - **Associativity**: Yes.
+/// - **Idempotence**: Yes.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::LWWMap;
+///
+/// let mut map1 = LWWMap::new();
+/// map1.insert("node_a", "key1".to_string(), "value1".to_string(), 100);
+///
+/// let mut map2 = LWWMap::new();
+/// map2.insert("node_b", "key1".to_string(), "value2".to_string(), 200);
+///
+/// map1.merge(&map2);
+/// assert_eq!(map1.get(&"key1".to_string()), Some(&"value2".to_string())); // Higher timestamp wins
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "K: Serialize, V: Serialize",

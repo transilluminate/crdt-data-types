@@ -10,12 +10,31 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 /// An FWW-Register (First-Write-Wins) stores a single value and resolves
 /// conflicts by choosing the value with the *lowest* non-zero timestamp.
 /// This is the dual of the LWW-Register and is useful in scenarios where
-/// the first recorded state should be preserved.
+/// the first recorded state should be preserved (e.g., "creation date").
+///
+/// # Key Properties
+///
+/// - **First-Write-Wins**: The update with the lowest timestamp wins.
+/// - **Initialization**: Initialized with `u64::MAX` so any valid write overwrites the default.
+/// - **Tie-Breaking**: Deterministic tie-breaking using node IDs.
 ///
 /// # Algebraic Properties
-/// - **Commutativity**: Merge order does not affect the final value.
-/// - **Idempotence**: Merging the same state multiple times is safe.
-/// - **Convergence**: All replicas will eventually reach the same value.
+///
+/// - **Commutativity**: Yes.
+/// - **Associativity**: Yes.
+/// - **Idempotence**: Yes.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::FWWRegister;
+///
+/// let mut reg1 = FWWRegister::new("value1".to_string(), 100, "node_a");
+/// let mut reg2 = FWWRegister::new("value2".to_string(), 200, "node_b");
+///
+/// reg1.merge(&reg2);
+/// assert_eq!(reg1.value, "value1"); // Lower timestamp wins
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(serialize = "T: Serialize", deserialize = "T: DeserializeOwned"))]
 pub struct FWWRegister<T> {

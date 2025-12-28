@@ -4,6 +4,22 @@ A high-performance library of Conflict-free Replicated Data Types (CRDTs) built 
 
 Includes a [demo-server](demo-server/README.md) with a rogue-like game to demonstrate CRDT merge ops. See how long you can survive! ⚔️
 
+## Installation
+
+Add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+crdt-data-types = "0.1"
+```
+
+To enable **Probabilistic Data Structures** (HyperLogLog, CountMinSketch, etc.), add the `probabilistic` feature:
+
+```toml
+[dependencies]
+crdt-data-types = { version = "0.1", features = ["probabilistic"] }
+```
+
 ## The "Two-Gear" Strategy
 
 This library is designed to support different performance requirements by providing two optimized integration pathways ("gears").
@@ -42,6 +58,7 @@ This library is designed to support different performance requirements by provid
 - **Sets**: `GSet`, `ORSet`, `LWWSet`
 - **Registers**: `LWWRegister`, `FWWRegister`, `MVRegister`
 - **Maps**: `LWWMap`, `ORMap`
+- **Probabilistic** (Optional, requires `features = ["probabilistic"]`): `HyperLogLog`, `CountMinSketch`, `RoaringBitmap`, `TDigest`, `TopK`
 - **Utilities**: `VectorClock`
 
 ---

@@ -12,12 +12,33 @@ use std::hash::Hash;
 /// A G-Set is a set that only supports element addition. Elements cannot be
 /// removed once added. This leads to simple merge semantics (set union).
 ///
+/// # Key Properties
+///
+/// - **Grow-only**: Elements can be added but never removed.
+/// - **Merge Strategy**: Set union.
+/// - **Simplicity**: Very low overhead and simple implementation.
+///
 /// # Algebraic Properties
-/// - **Monotonicity**: The set only grows; elements are never removed.
-/// - **Commutativity**: The order in which elements are added or sets are merged
-///   does not affect the final set contents.
-/// - **Idempotence**: Adding the same element multiple times or merging the
-///   same set multiple times does not change the state.
+///
+/// - **Commutativity**: Yes.
+/// - **Associativity**: Yes.
+/// - **Idempotence**: Yes.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::GSet;
+///
+/// let mut set1 = GSet::new();
+/// set1.insert("node_a", "apple".to_string());
+///
+/// let mut set2 = GSet::new();
+/// set2.insert("node_b", "banana".to_string());
+///
+/// set1.merge(&set2);
+/// assert!(set1.contains(&"apple".to_string()));
+/// assert!(set1.contains(&"banana".to_string()));
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "T: Serialize",

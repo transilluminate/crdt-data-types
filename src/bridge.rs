@@ -6,6 +6,21 @@ use serde_json::Value;
 ///
 /// This module enables seamless integration with JSON-based external systems
 /// by providing a safe, validated path to the optimized zero-copy Cap'n Proto format.
+///
+/// # Example
+///
+/// ```
+/// use crdt_data_types::SerdeCapnpBridge;
+/// use serde_json::json;
+///
+/// let json_data = json!({
+///     "counters": {"node_a": 10},
+///     "vclock": {"clocks": {"node_a": [1, 100]}}
+/// });
+///
+/// let bytes = SerdeCapnpBridge::json_to_capnp_bytes("GCounter", json_data).unwrap();
+/// assert!(!bytes.is_empty());
+/// ```
 pub struct SerdeCapnpBridge;
 
 impl SerdeCapnpBridge {
