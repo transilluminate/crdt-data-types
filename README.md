@@ -10,14 +10,14 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-crdt-data-types = "0.1.1"
+crdt-data-types = "0.1.2"
 ```
 
 To enable **Probabilistic Data Structures** (HyperLogLog, CountMinSketch, etc.), add the `probabilistic` feature:
 
 ```toml
 [dependencies]
-crdt-data-types = { version = "0.1.1", features = ["probabilistic"] }
+crdt-data-types = { version = "0.1.2", features = ["probabilistic"] }
 ```
 
 ## The "Two-Gear" Strategy
