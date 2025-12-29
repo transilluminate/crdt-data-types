@@ -10,14 +10,14 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-crdt-data-types = "0.1.2"
+crdt-data-types = "0.1.3"
 ```
 
 To enable **Probabilistic Data Structures** (HyperLogLog, CountMinSketch, etc.), add the `probabilistic` feature:
 
 ```toml
 [dependencies]
-crdt-data-types = { version = "0.1.2", features = ["probabilistic"] }
+crdt-data-types = { version = "0.1.3", features = ["probabilistic"] }
 ```
 
 ## The "Two-Gear" Strategy
@@ -87,6 +87,19 @@ let reader1 = GCounterReader::new(&gc1_bytes);
 let reader2 = GCounterReader::new(&gc2_bytes);
 
 let merged_gc = GCounter::merge_from_readers(&[reader1, reader2]).unwrap();
+```
+
+### Compaction
+```rust
+use crdt_data_types::compaction::{compact_json_values, compact_capnp_bytes};
+use serde_json::json;
+
+// JSON pathway
+let values = vec![json1, json2, json3];
+let compacted = compact_json_values("GCounter", &values).unwrap();
+
+// Cap'n Proto pathway (faster, no JSON overhead)
+let compacted_bytes = compact_capnp_bytes("GCounter", &[&bytes1, &bytes2]).unwrap();
 ```
 
 ---

@@ -4,6 +4,7 @@
 //! optimized for zero-copy merge operations using Cap'n Proto.
 
 pub mod bridge;
+pub mod compaction;
 pub mod fww_register;
 pub mod g_counter;
 pub mod g_set;
