@@ -61,6 +61,28 @@ This library is designed to support different performance requirements by provid
 - **Probabilistic** (Optional, requires `features = ["probabilistic"]`): `HyperLogLog`, `CountMinSketch`, `RoaringBitmap`, `TDigest`, `TopK`
 - **Utilities**: `VectorClock`
 
+### Algorithm References
+
+| Type | Algorithm | Citation |
+|------|-----------|----------|
+| `GCounter` | Grow-only Counter | [Shapiro et al., 2011](https://api.semanticscholar.org/CorpusID:8497154) |
+| `PNCounter` | Positive-Negative Counter | [Shapiro et al., 2011](https://api.semanticscholar.org/CorpusID:8497154) |
+| `GSet` | Grow-only Set | [Shapiro et al., 2011](https://api.semanticscholar.org/CorpusID:8497154) |
+| `ORSet` | Observed-Remove Set | [Bieniusa et al., 2012](https://doi.org/10.48550/arXiv.1210.3368) |
+)
+| `LWWSet` | Last-Writer-Wins Set | [Shapiro et al., 2011](https://api.semanticscholar.org/CorpusID:8497154) |
+| `LWWRegister` | Last-Writer-Wins Register | [Shapiro et al., 2011](https://api.semanticscholar.org/CorpusID:8497154) |
+| `FWWRegister` | First-Writer-Wins Register | [Shapiro et al., 2011](https://api.semanticscholar.org/CorpusID:8497154) |
+| `MVRegister` | Multi-Value Register | [Shapiro et al., 2011](https://api.semanticscholar.org/CorpusID:8497154) |
+| `LWWMap` | LWW-Element Map | Composition of LWWRegister per key |
+| `ORMap` | OR-Element Map | Composition of ORSet semantics |
+| `VectorClock` | Vector Clock | [Fidge, 1988](https://api.semanticscholar.org/CorpusID:18584970); [Mattern, 1989](https://api.semanticscholar.org/CorpusID:7517210) |
+| `HyperLogLog` | Cardinality Estimation | [Flajolet et al., 2007](https://api.semanticscholar.org/CorpusID:89403) |
+| `CountMinSketch` | Frequency Estimation | [Cormode & Muthukrishnan, 2005](https://doi.org/10.1016/j.jalgor.2003.12.001) |
+| `TDigest` | Quantile Estimation | [Dunning & Ertl, 2019](https://arxiv.org/abs/1902.04023) |
+| `RoaringBitmap` | Compressed Bitmap | [Lemire et al., 2016](https://doi.org/10.1002/spe.2325) |
+| `TopK` | Heavy Hitters | CMS + Min-Heap composition |
+
 ---
 
 ## Usage
