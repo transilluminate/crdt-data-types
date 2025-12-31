@@ -10,14 +10,14 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-crdt-data-types = "0.1.3"
+crdt-data-types = "0.1.4"
 ```
 
 To enable **Probabilistic Data Structures** (HyperLogLog, CountMinSketch, etc.), add the `probabilistic` feature:
 
 ```toml
 [dependencies]
-crdt-data-types = { version = "0.1.3", features = ["probabilistic"] }
+crdt-data-types = { version = "0.1.4", features = ["probabilistic"] }
 ```
 
 ## The "Two-Gear" Strategy
@@ -123,6 +123,11 @@ let compacted = compact_json_values("GCounter", &values).unwrap();
 // Cap'n Proto pathway (faster, no JSON overhead)
 let compacted_bytes = compact_capnp_bytes("GCounter", &[&bytes1, &bytes2]).unwrap();
 ```
+
+## Changelog
+
+### v0.1.4
+- **Usability**: `SerdeCapnpBridge` now accepts case-insensitive CRDT type names (e.g., "g_counter", "gcounter", "GCounter"). This simplifies integration with external systems that use snake_case.
 
 ---
 

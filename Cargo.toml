@@ -1,6 +1,6 @@
 [package]
 name = "crdt-data-types"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2021"
 description = "High-performance CRDT library with dual pathways: JSON-native for web APIs and Cap'n Proto zero-copy for binary transport"
 authors = ["Adrian Robinson <adrian.j.robinson@gmail.com>"]

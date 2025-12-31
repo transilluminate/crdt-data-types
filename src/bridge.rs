@@ -24,26 +24,30 @@ use serde_json::Value;
 pub struct SerdeCapnpBridge;
 
 impl SerdeCapnpBridge {
+    fn normalize_crdt_type(crdt_type: &str) -> String {
+        crdt_type.replace('_', "").to_lowercase()
+    }
+
     /// Converts a JSON value to Cap'n Proto bytes for a specific CRDT type.
     ///
     /// # Arguments
     /// * `crdt_type` - The name of the CRDT type (e.g., "GCounter", "LWWMap").
     /// * `json_value` - The JSON representation of the CRDT state.
     pub fn json_to_capnp_bytes(crdt_type: &str, json_value: Value) -> Result<Vec<u8>, CrdtError> {
-        match crdt_type {
-            "GCounter" => {
+        match Self::normalize_crdt_type(crdt_type).as_str() {
+            "gcounter" => {
                 let crdt: GCounter = serde_json::from_value(json_value)
                     .map_err(|e| CrdtError::InvalidInput(format!("JSON parse error: {}", e)))?;
                 crdt.validate()?;
                 Ok(crdt.to_capnp_bytes())
             }
-            "PNCounter" => {
+            "pncounter" => {
                 let crdt: PNCounter = serde_json::from_value(json_value)
                     .map_err(|e| CrdtError::InvalidInput(format!("JSON parse error: {}", e)))?;
                 crdt.validate()?;
                 Ok(crdt.to_capnp_bytes())
             }
-            "GSet" => {
+            "gset" => {
                 // Note: GSet involves generics, assume common primitive elements or
                 // handle specific common types. For a general bridge, we might need
                 // a more dynamic approach or just support common types here.
@@ -53,43 +57,43 @@ impl SerdeCapnpBridge {
                 crdt.validate()?;
                 Ok(crdt.to_capnp_bytes())
             }
-            "ORSet" => {
+            "orset" => {
                 let crdt: ORSet<String> = serde_json::from_value(json_value)
                     .map_err(|e| CrdtError::InvalidInput(format!("JSON parse error: {}", e)))?;
                 crdt.validate()?;
                 Ok(crdt.to_capnp_bytes())
             }
-            "LWWRegister" => {
+            "lwwregister" => {
                 let crdt: LWWRegister<String> = serde_json::from_value(json_value)
                     .map_err(|e| CrdtError::InvalidInput(format!("JSON parse error: {}", e)))?;
                 crdt.validate()?;
                 Ok(crdt.to_capnp_bytes())
             }
-            "FWWRegister" => {
+            "fwwregister" => {
                 let crdt: FWWRegister<String> = serde_json::from_value(json_value)
                     .map_err(|e| CrdtError::InvalidInput(format!("JSON parse error: {}", e)))?;
                 crdt.validate()?;
                 Ok(crdt.to_capnp_bytes())
             }
-            "MVRegister" => {
+            "mvregister" => {
                 let crdt: MVRegister<String> = serde_json::from_value(json_value)
                     .map_err(|e| CrdtError::InvalidInput(format!("JSON parse error: {}", e)))?;
                 crdt.validate()?;
                 Ok(crdt.to_capnp_bytes())
             }
-            "LWWMap" => {
+            "lwwmap" => {
                 let crdt: LWWMap<String, String> = serde_json::from_value(json_value)
                     .map_err(|e| CrdtError::InvalidInput(format!("JSON parse error: {}", e)))?;
                 crdt.validate()?;
                 Ok(crdt.to_capnp_bytes())
             }
-            "ORMap" => {
+            "ormap" => {
                 let crdt: ORMap<String, String> = serde_json::from_value(json_value)
                     .map_err(|e| CrdtError::InvalidInput(format!("JSON parse error: {}", e)))?;
                 crdt.validate()?;
                 Ok(crdt.to_capnp_bytes())
             }
-            "LWWSet" => {
+            "lwwset" => {
                 let crdt: LWWSet<String> = serde_json::from_value(json_value)
                     .map_err(|e| CrdtError::InvalidInput(format!("JSON parse error: {}", e)))?;
                 crdt.validate()?;
@@ -114,53 +118,53 @@ impl SerdeCapnpBridge {
     /// * `crdt_type` - The name of the CRDT type (e.g., "GCounter", "LWWMap").
     /// * `bytes` - The Cap'n Proto serialized bytes.
     pub fn capnp_bytes_to_json(crdt_type: &str, bytes: &[u8]) -> Result<Value, CrdtError> {
-        match crdt_type {
-            "GCounter" => {
+        match Self::normalize_crdt_type(crdt_type).as_str() {
+            "gcounter" => {
                 let reader = GCounterReader::new(bytes);
                 let crdt = GCounter::merge_from_readers(&[reader])?;
                 serde_json::to_value(crdt).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "PNCounter" => {
+            "pncounter" => {
                 let reader = PNCounterReader::new(bytes);
                 let crdt = PNCounter::merge_from_readers(&[reader])?;
                 serde_json::to_value(crdt).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "GSet" => {
+            "gset" => {
                 let reader = GSetReader::<String>::new(bytes);
                 let crdt = GSet::<String>::merge_from_readers(&[reader])?;
                 serde_json::to_value(crdt).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "ORSet" => {
+            "orset" => {
                 let reader = ORSetReader::<String>::new(bytes);
                 let crdt = ORSet::<String>::merge_from_readers(&[reader])?;
                 serde_json::to_value(crdt).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "LWWRegister" => {
+            "lwwregister" => {
                 let reader = LWWRegisterReader::<String>::new(bytes);
                 let crdt = LWWRegister::<String>::merge_from_readers(&[reader])?;
                 serde_json::to_value(crdt).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "FWWRegister" => {
+            "fwwregister" => {
                 let reader = FWWRegisterReader::<String>::new(bytes);
                 let crdt = FWWRegister::<String>::merge_from_readers(&[reader])?;
                 serde_json::to_value(crdt).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "MVRegister" => {
+            "mvregister" => {
                 let reader = MVRegisterReader::<String>::new(bytes);
                 let crdt = MVRegister::<String>::merge_from_readers(&[reader])?;
                 serde_json::to_value(crdt).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "LWWMap" => {
+            "lwwmap" => {
                 let reader = LWWMapReader::<String, String>::new(bytes);
                 let crdt = LWWMap::<String, String>::merge_from_readers(&[reader])?;
                 serde_json::to_value(crdt).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "ORMap" => {
+            "ormap" => {
                 let reader = ORMapReader::<String, String>::new(bytes);
                 let crdt = ORMap::<String, String>::merge_from_readers(&[reader])?;
                 serde_json::to_value(crdt).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "LWWSet" => {
+            "lwwset" => {
                 let reader = LWWSetReader::<String>::new(bytes);
                 let crdt = LWWSet::<String>::merge_from_readers(&[reader])?;
                 serde_json::to_value(crdt).map_err(|e| CrdtError::InvalidInput(e.to_string()))
@@ -181,8 +185,8 @@ impl SerdeCapnpBridge {
             return Ok(Value::Null);
         }
 
-        match crdt_type {
-            "GCounter" => {
+        match Self::normalize_crdt_type(crdt_type).as_str() {
+            "gcounter" => {
                 let mut base: GCounter = serde_json::from_value(values[0].clone())
                     .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
                 for val in &values[1..] {
@@ -192,7 +196,7 @@ impl SerdeCapnpBridge {
                 }
                 serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "PNCounter" => {
+            "pncounter" => {
                 let mut base: PNCounter = serde_json::from_value(values[0].clone())
                     .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
                 for val in &values[1..] {
@@ -202,7 +206,7 @@ impl SerdeCapnpBridge {
                 }
                 serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "GSet" => {
+            "gset" => {
                 let mut base: GSet<String> = serde_json::from_value(values[0].clone())
                     .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
                 for val in &values[1..] {
@@ -212,7 +216,7 @@ impl SerdeCapnpBridge {
                 }
                 serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "ORSet" => {
+            "orset" => {
                 let mut base: ORSet<String> = serde_json::from_value(values[0].clone())
                     .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
                 for val in &values[1..] {
@@ -222,7 +226,7 @@ impl SerdeCapnpBridge {
                 }
                 serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "LWWRegister" => {
+            "lwwregister" => {
                 let mut base: LWWRegister<String> = serde_json::from_value(values[0].clone())
                     .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
                 for val in &values[1..] {
@@ -232,7 +236,7 @@ impl SerdeCapnpBridge {
                 }
                 serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "FWWRegister" => {
+            "fwwregister" => {
                 let mut base: FWWRegister<String> = serde_json::from_value(values[0].clone())
                     .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
                 for val in &values[1..] {
@@ -242,7 +246,7 @@ impl SerdeCapnpBridge {
                 }
                 serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "MVRegister" => {
+            "mvregister" => {
                 let mut base: MVRegister<String> = serde_json::from_value(values[0].clone())
                     .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
                 for val in &values[1..] {
@@ -252,7 +256,7 @@ impl SerdeCapnpBridge {
                 }
                 serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "LWWMap" => {
+            "lwwmap" => {
                 let mut base: LWWMap<String, String> = serde_json::from_value(values[0].clone())
                     .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
                 for val in &values[1..] {
@@ -262,7 +266,7 @@ impl SerdeCapnpBridge {
                 }
                 serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "ORMap" => {
+            "ormap" => {
                 let mut base: ORMap<String, String> = serde_json::from_value(values[0].clone())
                     .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
                 for val in &values[1..] {
@@ -272,7 +276,7 @@ impl SerdeCapnpBridge {
                 }
                 serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
             }
-            "LWWSet" => {
+            "lwwset" => {
                 let mut base: LWWSet<String> = serde_json::from_value(values[0].clone())
                     .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
                 for val in &values[1..] {

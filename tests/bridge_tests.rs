@@ -93,3 +93,24 @@ fn test_merge_json_values_pncounter() {
     assert_eq!(merged["positive"]["counters"]["node3"], 15);
     assert_eq!(merged["negative"]["counters"]["node2"], 10);
 }
+
+#[test]
+fn test_case_insensitive_input() {
+    let json_data = json!({
+        "counters": {"node_a": 10},
+        "vclock": {"clocks": {"node_a": [1, 100]}}
+    });
+
+    // Test snake_case
+    let result_snake = SerdeCapnpBridge::json_to_capnp_bytes("g_counter", json_data.clone());
+    assert!(result_snake.is_ok(), "Expected success for snake_case input");
+
+    // Test lowercase
+    let result_lower = SerdeCapnpBridge::json_to_capnp_bytes("gcounter", json_data.clone());
+    assert!(result_lower.is_ok(), "Expected success for lowercase input");
+
+    // Test PascalCase
+    let result_pascal = SerdeCapnpBridge::json_to_capnp_bytes("GCounter", json_data);
+    assert!(result_pascal.is_ok(), "Expected success for PascalCase input");
+}
+
