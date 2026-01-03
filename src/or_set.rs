@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Adrian Robinson. All rights reserved.
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
 use crate::orset_capnp;
 use crate::traits::{Crdt, CrdtError, CrdtReader};
 use crate::vector_clock::VectorClock;
@@ -60,12 +63,22 @@ where
     S: serde::Serializer,
     T: Serialize,
 {
-    use serde::ser::SerializeMap;
-    let mut map = serializer.serialize_map(Some(elements.len()))?;
-    for (k, v) in elements {
-        map.serialize_entry(k, v)?;
+    use serde::ser::SerializeSeq;
+
+    #[derive(Serialize)]
+    struct EntryRef<'a, T> {
+        element: &'a T,
+        observations: &'a HashSet<(String, u64)>,
     }
-    map.end()
+
+    let mut seq = serializer.serialize_seq(Some(elements.len()))?;
+    for (k, v) in elements {
+        seq.serialize_element(&EntryRef {
+            element: k,
+            observations: v,
+        })?;
+    }
+    seq.end()
 }
 
 type ORSetEntry<T> = (T, HashSet<(String, u64)>);
@@ -84,16 +97,22 @@ where
         type Value = Vec<ORSetEntry<T>>;
 
         fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            formatter.write_str("a map of elements to observations")
+            formatter.write_str("a sequence of elements with observations")
         }
 
-        fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+        fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
         where
-            M: serde::de::MapAccess<'de>,
+            A: serde::de::SeqAccess<'de>,
         {
-            let mut elements: Vec<ORSetEntry<T>> = Vec::with_capacity(access.size_hint().unwrap_or(0));
-            while let Some((key, value)) = access.next_entry()? {
-                elements.push((key, value));
+            #[derive(Deserialize)]
+            struct Entry<T> {
+                element: T,
+                observations: HashSet<(String, u64)>,
+            }
+
+            let mut elements = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+            while let Some(entry) = seq.next_element::<Entry<T>>()? {
+                elements.push((entry.element, entry.observations));
             }
             // Sort to maintain invariant
             elements.sort_by(|a, b| a.0.cmp(&b.0));
@@ -101,7 +120,7 @@ where
         }
     }
 
-    deserializer.deserialize_map(ElementsVisitor(std::marker::PhantomData))
+    deserializer.deserialize_seq(ElementsVisitor(std::marker::PhantomData))
 }
 
 impl<T: Eq + Hash + Ord> Default for ORSet<T> {

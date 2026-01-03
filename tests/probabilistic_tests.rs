@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Adrian Robinson. All rights reserved.
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
 #[cfg(feature = "probabilistic")]
 mod tests {
     use crdt_data_types::{CountMinSketch, HyperLogLog, RoaringBitmap, TDigest, TopK, Crdt};

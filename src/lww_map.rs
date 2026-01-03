@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Adrian Robinson. All rights reserved.
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
 use crate::lww_map_capnp;
 use crate::traits::{Crdt, CrdtError, CrdtReader};
 use crate::vector_clock::VectorClock;

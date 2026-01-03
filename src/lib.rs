@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Adrian Robinson. All rights reserved.
+// Licensed under the MIT License. See LICENSE file in the project root for full license information.
+
 //! # zero-copy-crdt
 //!
 //! A high-performance library of Conflict-free Replicated Data Types (CRDTs)
