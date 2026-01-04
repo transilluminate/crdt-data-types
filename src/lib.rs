@@ -8,6 +8,7 @@
 
 pub mod bridge;
 pub mod compaction;
+pub mod enums;
 pub mod fww_register;
 pub mod g_counter;
 pub mod g_set;
@@ -25,6 +26,11 @@ pub mod vector_clock;
 
 // Re-export core traits
 pub use traits::{Crdt, CrdtError, CrdtReader};
+
+// Re-export enums
+pub use enums::CrdtType;
+#[cfg(feature = "probabilistic")]
+pub use enums::ProbabilisticCrdtType;
 
 // Re-export types as they are implemented
 pub use bridge::SerdeCapnpBridge;

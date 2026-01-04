@@ -3,6 +3,7 @@
 
 use crdt_data_types::*;
 use crdt_data_types::compaction::compact_capnp_bytes;
+use crdt_data_types::enums::CrdtType;
 use std::time::Duration;
 
 // ============================================================================
@@ -124,65 +125,61 @@ fn test_compact_capnp_all_types() {
     let mut gset = GSet::new();
     gset.insert("node", "val".to_string());
     let bytes = gset.to_capnp_bytes();
-    let res = compact_capnp_bytes("GSet", &[&bytes]).unwrap();
+    let res = compact_capnp_bytes(CrdtType::GSet, &[&bytes]).unwrap();
     assert!(!res.is_empty());
 
     // ORSet
     let mut orset = ORSet::new();
     orset.insert("node", "val".to_string());
     let bytes = orset.to_capnp_bytes();
-    let res = compact_capnp_bytes("ORSet", &[&bytes]).unwrap();
+    let res = compact_capnp_bytes(CrdtType::ORSet, &[&bytes]).unwrap();
     assert!(!res.is_empty());
 
     // PNCounter
     let mut pn = PNCounter::new();
     pn.increment("node", 1);
     let bytes = pn.to_capnp_bytes();
-    let res = compact_capnp_bytes("PNCounter", &[&bytes]).unwrap();
+    let res = compact_capnp_bytes(CrdtType::PNCounter, &[&bytes]).unwrap();
     assert!(!res.is_empty());
 
     // LWWRegister
     let lww = LWWRegister::new("val".to_string(), 1, "node");
     let bytes = lww.to_capnp_bytes();
-    let res = compact_capnp_bytes("LWWRegister", &[&bytes]).unwrap();
+    let res = compact_capnp_bytes(CrdtType::LWWRegister, &[&bytes]).unwrap();
     assert!(!res.is_empty());
 
     // FWWRegister
     let fww = FWWRegister::new("val".to_string(), 1, "node");
     let bytes = fww.to_capnp_bytes();
-    let res = compact_capnp_bytes("FWWRegister", &[&bytes]).unwrap();
+    let res = compact_capnp_bytes(CrdtType::FWWRegister, &[&bytes]).unwrap();
     assert!(!res.is_empty());
 
     // MVRegister
     let mut mv = MVRegister::new();
     mv.set("node", "val".to_string());
     let bytes = mv.to_capnp_bytes();
-    let res = compact_capnp_bytes("MVRegister", &[&bytes]).unwrap();
+    let res = compact_capnp_bytes(CrdtType::MVRegister, &[&bytes]).unwrap();
     assert!(!res.is_empty());
 
     // LWWMap
     let mut lwwmap = LWWMap::new();
     lwwmap.insert("node", "key".to_string(), "val".to_string(), 100);
     let bytes = lwwmap.to_capnp_bytes();
-    let res = compact_capnp_bytes("LWWMap", &[&bytes]).unwrap();
+    let res = compact_capnp_bytes(CrdtType::LWWMap, &[&bytes]).unwrap();
     assert!(!res.is_empty());
 
     // ORMap
     let mut ormap = ORMap::new();
     ormap.insert("node", "key".to_string(), "val".to_string());
     let bytes = ormap.to_capnp_bytes();
-    let res = compact_capnp_bytes("ORMap", &[&bytes]).unwrap();
+    let res = compact_capnp_bytes(CrdtType::ORMap, &[&bytes]).unwrap();
     assert!(!res.is_empty());
 
     // LWWSet
     let mut lwwset = LWWSet::new();
     lwwset.insert("node", "val".to_string(), 100);
     let bytes = lwwset.to_capnp_bytes();
-    let res = compact_capnp_bytes("LWWSet", &[&bytes]).unwrap();
+    let res = compact_capnp_bytes(CrdtType::LWWSet, &[&bytes]).unwrap();
     assert!(!res.is_empty());
 }
 
-#[test]
-fn test_compact_capnp_errors() {
-    assert!(compact_capnp_bytes("Unknown", &[&[]]).is_err());
-}

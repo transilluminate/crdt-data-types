@@ -2,7 +2,9 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
 use crdt_data_types::*;
+use crdt_data_types::enums::CrdtType;
 use serde_json::json;
+use std::str::FromStr;
 
 #[test]
 fn test_gcounter_bridge_roundtrip() {
@@ -16,8 +18,8 @@ fn test_gcounter_bridge_roundtrip() {
         }
     });
 
-    let bytes = SerdeCapnpBridge::json_to_capnp_bytes("GCounter", initial_json.clone()).unwrap();
-    let final_json = SerdeCapnpBridge::capnp_bytes_to_json("GCounter", &bytes).unwrap();
+    let bytes = SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::GCounter, initial_json.clone()).unwrap();
+    let final_json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::GCounter, &bytes).unwrap();
 
     // Note: GCounter internal vclock might be updated by increment but here we just test roundtrip of state
     assert_eq!(initial_json["counters"], final_json["counters"]);
@@ -35,8 +37,8 @@ fn test_lwwmap_bridge_roundtrip() {
         }
     });
 
-    let bytes = SerdeCapnpBridge::json_to_capnp_bytes("LWWMap", initial_json.clone()).unwrap();
-    let final_json = SerdeCapnpBridge::capnp_bytes_to_json("LWWMap", &bytes).unwrap();
+    let bytes = SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::LWWMap, initial_json.clone()).unwrap();
+    let final_json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::LWWMap, &bytes).unwrap();
 
     assert_eq!(initial_json["entries"], final_json["entries"]);
 }
@@ -54,8 +56,8 @@ fn test_mvregister_bridge_roundtrip() {
         }
     });
 
-    let bytes = SerdeCapnpBridge::json_to_capnp_bytes("MVRegister", initial_json.clone()).unwrap();
-    let final_json = SerdeCapnpBridge::capnp_bytes_to_json("MVRegister", &bytes).unwrap();
+    let bytes = SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::MVRegister, initial_json.clone()).unwrap();
+    let final_json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::MVRegister, &bytes).unwrap();
 
     assert_eq!(initial_json["entries"], final_json["entries"]);
 }
@@ -71,7 +73,7 @@ fn test_merge_json_values_gcounter() {
         "vclock": { "clocks": {} }
     });
 
-    let merged = SerdeCapnpBridge::merge_json_values("GCounter", &[json1, json2]).unwrap();
+    let merged = SerdeCapnpBridge::merge_json_values(CrdtType::GCounter, &[json1, json2]).unwrap();
 
     assert_eq!(merged["counters"]["node1"], 10);
     assert_eq!(merged["counters"]["node2"], 20);
@@ -90,7 +92,7 @@ fn test_merge_json_values_pncounter() {
         "vclock": { "clocks": {} }
     });
 
-    let merged = SerdeCapnpBridge::merge_json_values("PNCounter", &[json1, json2]).unwrap();
+    let merged = SerdeCapnpBridge::merge_json_values(CrdtType::PNCounter, &[json1, json2]).unwrap();
 
     assert_eq!(merged["positive"]["counters"]["node1"], 10);
     assert_eq!(merged["positive"]["counters"]["node3"], 15);
@@ -98,22 +100,17 @@ fn test_merge_json_values_pncounter() {
 }
 
 #[test]
-fn test_case_insensitive_input() {
-    let json_data = json!({
-        "counters": {"node_a": 10},
-        "vclock": {"clocks": {"node_a": [1, 100]}}
-    });
-
+fn test_case_insensitive_parsing() {
     // Test snake_case
-    let result_snake = SerdeCapnpBridge::json_to_capnp_bytes("g_counter", json_data.clone());
-    assert!(result_snake.is_ok(), "Expected success for snake_case input");
+    assert_eq!(CrdtType::from_str("g_counter").unwrap(), CrdtType::GCounter);
 
     // Test lowercase
-    let result_lower = SerdeCapnpBridge::json_to_capnp_bytes("gcounter", json_data.clone());
-    assert!(result_lower.is_ok(), "Expected success for lowercase input");
+    assert_eq!(CrdtType::from_str("gcounter").unwrap(), CrdtType::GCounter);
 
     // Test PascalCase
-    let result_pascal = SerdeCapnpBridge::json_to_capnp_bytes("GCounter", json_data);
-    assert!(result_pascal.is_ok(), "Expected success for PascalCase input");
+    assert_eq!(CrdtType::from_str("GCounter").unwrap(), CrdtType::GCounter);
+    
+    // Test invalid
+    assert!(CrdtType::from_str("invalid_type").is_err());
 }
 

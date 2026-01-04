@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
 use crdt_data_types::*;
+use crdt_data_types::enums::CrdtType;
 use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 
@@ -44,14 +45,14 @@ fn bench_merge(c: &mut Criterion) {
 
         group.bench_function(format!("JSON to Capnp (N={})", n), |bencher| {
             bencher.iter(|| {
-                SerdeCapnpBridge::json_to_capnp_bytes("ORSet", black_box(initial_json.clone()))
+                SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::ORSet, black_box(initial_json.clone()))
                     .unwrap()
             })
         });
 
         group.bench_function(format!("Capnp to JSON (N={})", n), |bencher| {
             bencher.iter(|| {
-                SerdeCapnpBridge::capnp_bytes_to_json("ORSet", black_box(&bytes_a)).unwrap()
+                SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::ORSet, black_box(&bytes_a)).unwrap()
             })
         });
 
@@ -61,7 +62,7 @@ fn bench_merge(c: &mut Criterion) {
         group.bench_function(format!("Full JSON Merge Cycle (N={})", n), |bencher| {
             bencher.iter(|| {
                 SerdeCapnpBridge::merge_json_values(
-                    "ORSet",
+                    CrdtType::ORSet,
                     black_box(&[json_a.clone(), json_b.clone()]),
                 )
                 .unwrap()
@@ -113,7 +114,7 @@ fn bench_merge(c: &mut Criterion) {
         group.bench_function(format!("Full JSON Merge Cycle (N={})", n), |bencher| {
             bencher.iter(|| {
                 SerdeCapnpBridge::merge_json_values(
-                    "GCounter",
+                    CrdtType::GCounter,
                     black_box(&[json_a.clone(), json_b.clone()]),
                 )
                 .unwrap()

@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
 use crdt_data_types::*;
+use crdt_data_types::enums::CrdtType;
 use serde_json::json;
 
 // ============================================================================
@@ -89,8 +90,8 @@ fn test_bridge_gset() {
         "elements": ["a", "b", "c"],
         "vclock": { "clocks": {} }
     });
-    let bytes = SerdeCapnpBridge::json_to_capnp_bytes("GSet", json.clone()).unwrap();
-    let back = SerdeCapnpBridge::capnp_bytes_to_json("GSet", &bytes).unwrap();
+    let bytes = SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::GSet, json.clone()).unwrap();
+    let back = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::GSet, &bytes).unwrap();
     
     let set: GSet<String> = serde_json::from_value(back).unwrap();
     assert!(set.elements.contains(&"a".to_string()));
@@ -102,7 +103,7 @@ fn test_bridge_gset() {
         "elements": ["d"],
         "vclock": { "clocks": {} }
     });
-    let merged = SerdeCapnpBridge::merge_json_values("GSet", &[json, json2]).unwrap();
+    let merged = SerdeCapnpBridge::merge_json_values(CrdtType::GSet, &[json, json2]).unwrap();
     let set_merged: GSet<String> = serde_json::from_value(merged).unwrap();
     assert!(set_merged.elements.contains(&"d".to_string()));
     assert!(set_merged.elements.contains(&"a".to_string()));
@@ -119,8 +120,8 @@ fn test_bridge_orset() {
         "vclock": { "clocks": {} }
     });
     
-    let bytes = SerdeCapnpBridge::json_to_capnp_bytes("ORSet", json.clone()).unwrap();
-    let back = SerdeCapnpBridge::capnp_bytes_to_json("ORSet", &bytes).unwrap();
+    let bytes = SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::ORSet, json.clone()).unwrap();
+    let back = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::ORSet, &bytes).unwrap();
     
     // Check roundtrip
     let set: ORSet<String> = serde_json::from_value(back).unwrap();
@@ -133,7 +134,7 @@ fn test_bridge_orset() {
         ],
         "vclock": { "clocks": {} }
     });
-    let merged = SerdeCapnpBridge::merge_json_values("ORSet", &[json, json2]).unwrap();
+    let merged = SerdeCapnpBridge::merge_json_values(CrdtType::ORSet, &[json, json2]).unwrap();
     let merged_set: ORSet<String> = serde_json::from_value(merged).unwrap();
     assert!(merged_set.elements.iter().any(|(e, _)| e == "elem3"));
 }
@@ -147,8 +148,8 @@ fn test_bridge_lww_register() {
         "vclock": { "clocks": {} }
     });
     
-    let bytes = SerdeCapnpBridge::json_to_capnp_bytes("LWWRegister", json.clone()).unwrap();
-    let back = SerdeCapnpBridge::capnp_bytes_to_json("LWWRegister", &bytes).unwrap();
+    let bytes = SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::LWWRegister, json.clone()).unwrap();
+    let back = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::LWWRegister, &bytes).unwrap();
     assert_eq!(back["value"], "test_val");
     
     // Merge
@@ -158,7 +159,7 @@ fn test_bridge_lww_register() {
         "node_id": "node1",
         "vclock": { "clocks": {} }
     });
-    let merged = SerdeCapnpBridge::merge_json_values("LWWRegister", &[json, json2]).unwrap();
+    let merged = SerdeCapnpBridge::merge_json_values(CrdtType::LWWRegister, &[json, json2]).unwrap();
     assert_eq!(merged["value"], "newer_val");
 }
 
@@ -171,8 +172,8 @@ fn test_bridge_fww_register() {
         "vclock": { "clocks": {} }
     });
     
-    let bytes = SerdeCapnpBridge::json_to_capnp_bytes("FWWRegister", json.clone()).unwrap();
-    let back = SerdeCapnpBridge::capnp_bytes_to_json("FWWRegister", &bytes).unwrap();
+    let bytes = SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::FWWRegister, json.clone()).unwrap();
+    let back = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::FWWRegister, &bytes).unwrap();
     assert_eq!(back["value"], "first_val");
     
     // Merge (older timestamp wins)
@@ -182,7 +183,7 @@ fn test_bridge_fww_register() {
         "node_id": "node1",
         "vclock": { "clocks": {} }
     });
-    let merged = SerdeCapnpBridge::merge_json_values("FWWRegister", &[json, json2]).unwrap();
+    let merged = SerdeCapnpBridge::merge_json_values(CrdtType::FWWRegister, &[json, json2]).unwrap();
     assert_eq!(merged["value"], "older_val");
 }
 
@@ -197,8 +198,8 @@ fn test_bridge_lwwset() {
         "vclock": { "clocks": {} }
     });
     
-    let bytes = SerdeCapnpBridge::json_to_capnp_bytes("LWWSet", json.clone()).unwrap();
-    let back = SerdeCapnpBridge::capnp_bytes_to_json("LWWSet", &bytes).unwrap();
+    let bytes = SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::LWWSet, json.clone()).unwrap();
+    let back = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::LWWSet, &bytes).unwrap();
     
     let set: LWWSet<String> = serde_json::from_value(back).unwrap();
     assert!(set.add_set.iter().any(|(e, _)| e == "item1"));
@@ -211,7 +212,7 @@ fn test_bridge_lwwset() {
         "remove_set": {},
         "vclock": { "clocks": {} }
     });
-    let merged = SerdeCapnpBridge::merge_json_values("LWWSet", &[json, json2]).unwrap();
+    let merged = SerdeCapnpBridge::merge_json_values(CrdtType::LWWSet, &[json, json2]).unwrap();
     let merged_set: LWWSet<String> = serde_json::from_value(merged).unwrap();
     assert!(merged_set.add_set.iter().any(|(e, _)| e == "item1"));
     assert!(merged_set.add_set.iter().any(|(e, _)| e == "item2"));
@@ -235,8 +236,8 @@ fn test_bridge_ormap() {
         "vclock": { "clocks": {} }
     });
     
-    let bytes = SerdeCapnpBridge::json_to_capnp_bytes("ORMap", json.clone()).unwrap();
-    let back = SerdeCapnpBridge::capnp_bytes_to_json("ORMap", &bytes).unwrap();
+    let bytes = SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::ORMap, json.clone()).unwrap();
+    let back = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::ORMap, &bytes).unwrap();
     
     let map: ORMap<String, String> = serde_json::from_value(back).unwrap();
     assert!(!map.elements.is_empty());
@@ -254,21 +255,16 @@ fn test_bridge_ormap() {
         },
         "vclock": { "clocks": {} }
     });
-    let merged = SerdeCapnpBridge::merge_json_values("ORMap", &[json, json2]).unwrap();
+    let merged = SerdeCapnpBridge::merge_json_values(CrdtType::ORMap, &[json, json2]).unwrap();
     let merged_map: ORMap<String, String> = serde_json::from_value(merged).unwrap();
     assert!(merged_map.elements.iter().any(|(k, v)| k == "key2" && v == "val2"));
 }
 
 #[test]
 fn test_bridge_errors() {
-    // Unknown type
-    assert!(SerdeCapnpBridge::json_to_capnp_bytes("UnknownType", json!({})).is_err());
-    assert!(SerdeCapnpBridge::capnp_bytes_to_json("UnknownType", &[]).is_err());
-    assert!(SerdeCapnpBridge::merge_json_values("UnknownType", &[json!({})]).is_err());
-    
     // Invalid JSON for type
-    assert!(SerdeCapnpBridge::json_to_capnp_bytes("GCounter", json!(["not", "a", "counter"])).is_err());
+    assert!(SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::GCounter, json!(["not", "a", "counter"])).is_err());
     
     // Empty merge
-    assert!(SerdeCapnpBridge::merge_json_values("GCounter", &[]).unwrap().is_null());
+    assert!(SerdeCapnpBridge::merge_json_values(CrdtType::GCounter, &[]).unwrap().is_null());
 }

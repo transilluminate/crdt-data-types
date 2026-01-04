@@ -56,22 +56,22 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-crdt-data-types = "0.1.5"
+crdt-data-types = "0.1.6"
 # Optional: Enable probabilistic structures
-# crdt-data-types = { version = "0.1.5", features = ["probabilistic"] }
+# crdt-data-types = { version = "0.1.6", features = ["probabilistic"] }
 ```
 
 ### JSON Pathway (Web API)
 
 ```rust
-use crdt_data_types::SerdeCapnpBridge;
+use crdt_data_types::{SerdeCapnpBridge, CrdtType};
 use serde_json::json;
 
 let json1 = json!({ "counters": { "node1": 10 } });
 let json2 = json!({ "counters": { "node2": 20 } });
 
-// Merges JSON directly, handling snake_case inputs automatically
-let merged = SerdeCapnpBridge::merge_json_values("GCounter", &[json1, json2]).unwrap();
+// Merges JSON directly
+let merged = SerdeCapnpBridge::merge_json_values(CrdtType::GCounter, &[json1, json2]).unwrap();
 ```
 
 ### Zero-Copy Pathway (Binary/Storage)

@@ -16,6 +16,7 @@
 //!
 //! ```
 //! use crdt_data_types::compaction::compact_json_values;
+//! use crdt_data_types::enums::CrdtType;
 //! use serde_json::json;
 //!
 //! let values = vec![
@@ -23,24 +24,26 @@
 //!     json!({"counters": {"node_b": 20}, "vclock": {"clocks": {"node_b": [1, 100]}}}),
 //! ];
 //!
-//! let compacted = compact_json_values("GCounter", &values).unwrap();
+//! let compacted = compact_json_values(CrdtType::GCounter, &values).unwrap();
 //! ```
 
 use crate::bridge::SerdeCapnpBridge;
 use crate::traits::{Crdt, CrdtError};
+use crate::enums::CrdtType;
 use crate::*;
 use serde_json::Value;
 
 /// Compacts multiple CRDT JSON values into a single merged value.
 ///
 /// # Arguments
-/// * `crdt_type` - The CRDT type name (e.g., "GCounter", "ORSet").
+/// * `crdt_type` - The CRDT type.
 /// * `values` - Slice of JSON values representing CRDT states to compact.
 ///
 /// # Example
 ///
 /// ```
 /// use crdt_data_types::compaction::compact_json_values;
+/// use crdt_data_types::enums::CrdtType;
 /// use serde_json::json;
 ///
 /// let values = vec![
@@ -48,9 +51,9 @@ use serde_json::Value;
 ///     json!({"counters": {"node_a": 10}, "vclock": {"clocks": {"node_a": [2, 200]}}}),
 /// ];
 ///
-/// let result = compact_json_values("GCounter", &values).unwrap();
+/// let result = compact_json_values(CrdtType::GCounter, &values).unwrap();
 /// ```
-pub fn compact_json_values(crdt_type: &str, values: &[Value]) -> Result<Value, CrdtError> {
+pub fn compact_json_values(crdt_type: CrdtType, values: &[Value]) -> Result<Value, CrdtError> {
     SerdeCapnpBridge::merge_json_values(crdt_type, values)
 }
 
@@ -60,7 +63,7 @@ pub fn compact_json_values(crdt_type: &str, values: &[Value]) -> Result<Value, C
 /// It avoids JSON serialization overhead entirely.
 ///
 /// # Arguments
-/// * `crdt_type` - The CRDT type name (e.g., "GCounter", "ORSet").
+/// * `crdt_type` - The CRDT type.
 /// * `buffers` - Slice of Cap'n Proto byte buffers to compact.
 ///
 /// # Example
@@ -68,6 +71,7 @@ pub fn compact_json_values(crdt_type: &str, values: &[Value]) -> Result<Value, C
 /// ```
 /// use crdt_data_types::{GCounter, Crdt};
 /// use crdt_data_types::compaction::compact_capnp_bytes;
+/// use crdt_data_types::enums::CrdtType;
 ///
 /// let mut gc1 = GCounter::new();
 /// gc1.increment("node_a", 10);
@@ -77,25 +81,25 @@ pub fn compact_json_values(crdt_type: &str, values: &[Value]) -> Result<Value, C
 /// gc2.increment("node_b", 20);
 /// let bytes2 = gc2.to_capnp_bytes();
 ///
-/// let compacted = compact_capnp_bytes("GCounter", &[&bytes1, &bytes2]).unwrap();
+/// let compacted = compact_capnp_bytes(CrdtType::GCounter, &[&bytes1, &bytes2]).unwrap();
 /// ```
-pub fn compact_capnp_bytes(crdt_type: &str, buffers: &[&[u8]]) -> Result<Vec<u8>, CrdtError> {
+pub fn compact_capnp_bytes(crdt_type: CrdtType, buffers: &[&[u8]]) -> Result<Vec<u8>, CrdtError> {
     if buffers.is_empty() {
         return Ok(Vec::new());
     }
 
     match crdt_type {
-        "GCounter" => {
+        CrdtType::GCounter => {
             let readers: Vec<_> = buffers.iter().map(|b| GCounterReader::new(b)).collect();
             let merged = GCounter::merge_from_readers(&readers)?;
             Ok(merged.to_capnp_bytes())
         }
-        "PNCounter" => {
+        CrdtType::PNCounter => {
             let readers: Vec<_> = buffers.iter().map(|b| PNCounterReader::new(b)).collect();
             let merged = PNCounter::merge_from_readers(&readers)?;
             Ok(merged.to_capnp_bytes())
         }
-        "GSet" => {
+        CrdtType::GSet => {
             let readers: Vec<_> = buffers
                 .iter()
                 .map(|b| GSetReader::<String>::new(b))
@@ -103,7 +107,7 @@ pub fn compact_capnp_bytes(crdt_type: &str, buffers: &[&[u8]]) -> Result<Vec<u8>
             let merged = GSet::<String>::merge_from_readers(&readers)?;
             Ok(merged.to_capnp_bytes())
         }
-        "ORSet" => {
+        CrdtType::ORSet => {
             let readers: Vec<_> = buffers
                 .iter()
                 .map(|b| ORSetReader::<String>::new(b))
@@ -111,7 +115,7 @@ pub fn compact_capnp_bytes(crdt_type: &str, buffers: &[&[u8]]) -> Result<Vec<u8>
             let merged = ORSet::<String>::merge_from_readers(&readers)?;
             Ok(merged.to_capnp_bytes())
         }
-        "LWWRegister" => {
+        CrdtType::LWWRegister => {
             let readers: Vec<_> = buffers
                 .iter()
                 .map(|b| LWWRegisterReader::<String>::new(b))
@@ -119,7 +123,7 @@ pub fn compact_capnp_bytes(crdt_type: &str, buffers: &[&[u8]]) -> Result<Vec<u8>
             let merged = LWWRegister::<String>::merge_from_readers(&readers)?;
             Ok(merged.to_capnp_bytes())
         }
-        "FWWRegister" => {
+        CrdtType::FWWRegister => {
             let readers: Vec<_> = buffers
                 .iter()
                 .map(|b| FWWRegisterReader::<String>::new(b))
@@ -127,7 +131,7 @@ pub fn compact_capnp_bytes(crdt_type: &str, buffers: &[&[u8]]) -> Result<Vec<u8>
             let merged = FWWRegister::<String>::merge_from_readers(&readers)?;
             Ok(merged.to_capnp_bytes())
         }
-        "MVRegister" => {
+        CrdtType::MVRegister => {
             let readers: Vec<_> = buffers
                 .iter()
                 .map(|b| MVRegisterReader::<String>::new(b))
@@ -135,7 +139,7 @@ pub fn compact_capnp_bytes(crdt_type: &str, buffers: &[&[u8]]) -> Result<Vec<u8>
             let merged = MVRegister::<String>::merge_from_readers(&readers)?;
             Ok(merged.to_capnp_bytes())
         }
-        "LWWMap" => {
+        CrdtType::LWWMap => {
             let readers: Vec<_> = buffers
                 .iter()
                 .map(|b| LWWMapReader::<String, String>::new(b))
@@ -143,7 +147,7 @@ pub fn compact_capnp_bytes(crdt_type: &str, buffers: &[&[u8]]) -> Result<Vec<u8>
             let merged = LWWMap::<String, String>::merge_from_readers(&readers)?;
             Ok(merged.to_capnp_bytes())
         }
-        "ORMap" => {
+        CrdtType::ORMap => {
             let readers: Vec<_> = buffers
                 .iter()
                 .map(|b| ORMapReader::<String, String>::new(b))
@@ -151,7 +155,7 @@ pub fn compact_capnp_bytes(crdt_type: &str, buffers: &[&[u8]]) -> Result<Vec<u8>
             let merged = ORMap::<String, String>::merge_from_readers(&readers)?;
             Ok(merged.to_capnp_bytes())
         }
-        "LWWSet" => {
+        CrdtType::LWWSet => {
             let readers: Vec<_> = buffers
                 .iter()
                 .map(|b| LWWSetReader::<String>::new(b))
@@ -159,10 +163,6 @@ pub fn compact_capnp_bytes(crdt_type: &str, buffers: &[&[u8]]) -> Result<Vec<u8>
             let merged = LWWSet::<String>::merge_from_readers(&readers)?;
             Ok(merged.to_capnp_bytes())
         }
-        _ => Err(CrdtError::InvalidInput(format!(
-            "Compaction not supported for type: {}",
-            crdt_type
-        ))),
     }
 }
 
@@ -178,7 +178,7 @@ mod tests {
             json!({"counters": {"node_b": 20}, "vclock": {"clocks": {"node_b": [1, 100]}}}),
         ];
 
-        let result = compact_json_values("GCounter", &values).unwrap();
+        let result = compact_json_values(CrdtType::GCounter, &values).unwrap();
         assert!(result.get("counters").is_some());
     }
 
@@ -192,7 +192,7 @@ mod tests {
         gc2.increment("node_b", 20);
         let bytes2 = gc2.to_capnp_bytes();
 
-        let compacted = compact_capnp_bytes("GCounter", &[&bytes1, &bytes2]).unwrap();
+        let compacted = compact_capnp_bytes(CrdtType::GCounter, &[&bytes1, &bytes2]).unwrap();
         assert!(!compacted.is_empty());
 
         // Verify the merged result
@@ -203,10 +203,10 @@ mod tests {
 
     #[test]
     fn test_compact_empty() {
-        let result = compact_json_values("GCounter", &[]).unwrap();
+        let result = compact_json_values(CrdtType::GCounter, &[]).unwrap();
         assert_eq!(result, Value::Null);
 
-        let bytes = compact_capnp_bytes("GCounter", &[]).unwrap();
+        let bytes = compact_capnp_bytes(CrdtType::GCounter, &[]).unwrap();
         assert!(bytes.is_empty());
     }
 }
