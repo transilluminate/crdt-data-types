@@ -53,6 +53,7 @@ pub struct ORMap<K: Eq + Hash + Ord, V: Eq + Hash + Ord> {
     /// Internal storage using an OR-Set of (K, V) tuples.
     pub elements: ORSet<(K, V)>,
     /// Vector clock representing the causal history of the map.
+    #[serde(default)]
     pub vclock: VectorClock,
 }
 

@@ -46,6 +46,7 @@ pub struct GCounter {
     #[serde(serialize_with = "serialize_counters", deserialize_with = "deserialize_counters")]
     pub counters: Vec<(String, i64)>,
     /// Vector clock for causal ordering and tracking updates.
+    #[serde(default)]
     pub vclock: VectorClock,
 }
 

@@ -48,6 +48,7 @@ pub struct FWWRegister<T> {
     /// Identifier of the node that performed the first write.
     pub node_id: String,
     /// Vector clock for tracking causal history.
+    #[serde(default)]
     pub vclock: VectorClock,
 }
 

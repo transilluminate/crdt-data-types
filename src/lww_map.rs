@@ -52,6 +52,7 @@ pub struct LWWMap<K: Eq + Hash + Ord, V> {
     #[serde(serialize_with = "serialize_entries", deserialize_with = "deserialize_entries")]
     pub entries: Vec<(K, (V, u64, String))>,
     /// Vector clock representing the causal history of the map.
+    #[serde(default)]
     pub vclock: VectorClock,
 }
 

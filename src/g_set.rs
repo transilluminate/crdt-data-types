@@ -52,6 +52,7 @@ pub struct GSet<T: Eq + Hash + Ord> {
     #[serde(serialize_with = "serialize_elements", deserialize_with = "deserialize_elements")]
     pub elements: Vec<T>,
     /// Vector clock for tracking causal history.
+    #[serde(default)]
     pub vclock: VectorClock,
 }
 

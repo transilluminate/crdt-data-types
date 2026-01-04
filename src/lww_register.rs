@@ -47,6 +47,7 @@ pub struct LWWRegister<T> {
     /// Identifier of the node that performed the last write.
     pub node_id: String,
     /// Vector clock for tracking causal history.
+    #[serde(default)]
     pub vclock: VectorClock,
 }
 

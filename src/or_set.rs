@@ -52,6 +52,7 @@ pub struct ORSet<T: Eq + Hash + Ord> {
     #[serde(serialize_with = "serialize_elements", deserialize_with = "deserialize_elements")]
     pub elements: Vec<(T, HashSet<(String, u64)>)>,
     /// Vector clock representing the causal history of the set.
+    #[serde(default)]
     pub vclock: VectorClock,
 }
 

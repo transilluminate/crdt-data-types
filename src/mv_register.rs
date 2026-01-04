@@ -54,6 +54,7 @@ pub struct MVRegister<T: Eq + Hash> {
     /// Each value is associated with one or more observation IDs (node_id, counter).
     pub entries: HashMap<T, HashSet<(String, u64)>>,
     /// Vector clock representing the cumulative causal history.
+    #[serde(default)]
     pub vclock: VectorClock,
 }
 

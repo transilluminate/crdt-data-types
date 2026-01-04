@@ -45,6 +45,7 @@ pub struct PNCounter {
     /// Internal G-Counter for negative decrements.
     pub negative: GCounter,
     /// Vector clock for tracking causal history.
+    #[serde(default)]
     pub vclock: VectorClock,
 }
 

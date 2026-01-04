@@ -53,6 +53,7 @@ pub struct LWWSet<T: Eq + Hash + Ord> {
     #[serde(serialize_with = "serialize_lww_map", deserialize_with = "deserialize_lww_map")]
     pub remove_set: Vec<(T, (u64, String))>,
     /// Vector clock representing the causal history of the set.
+    #[serde(default)]
     pub vclock: VectorClock,
 }
 
