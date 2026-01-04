@@ -56,7 +56,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-crdt-data-types = "0.1.6"
+crdt-data-types = "0.1.7"
 # Optional: Enable probabilistic structures
 # crdt-data-types = { version = "0.1.6", features = ["probabilistic"] }
 ```

@@ -33,7 +33,7 @@ const MAX_MONSTERS: usize = 50;
 // Game Types
 // ============================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 enum EntityKind {
     Player,
     Monster,
@@ -42,7 +42,7 @@ enum EntityKind {
     Deleted,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 struct Entity {
     id: String,
     x: i32,

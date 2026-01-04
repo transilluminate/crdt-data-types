@@ -63,7 +63,7 @@ impl<T: Clone + Default + Serialize + DeserializeOwned + Send + Sync + 'static> 
     }
 }
 
-impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + 'static> LWWRegister<T> {
+impl<T: Clone + Serialize + DeserializeOwned + Ord + Send + Sync + 'static> LWWRegister<T> {
     /// Creates a new LWW-Register with an initial value.
     pub fn new(value: T, timestamp: u64, node_id: impl Into<String>) -> Self {
         let node_id = node_id.into();
@@ -87,8 +87,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + 'static> LWWRegiste
             || (timestamp == self.timestamp && node_id > self.node_id)
             || (timestamp == self.timestamp
                 && node_id == self.node_id
-                && bincode::serialize(&value).unwrap_or_default()
-                    > bincode::serialize(&self.value).unwrap_or_default());
+                && value > self.value);
 
         if update {
             self.value = value;
@@ -104,8 +103,7 @@ impl<T: Clone + Serialize + DeserializeOwned + Send + Sync + 'static> LWWRegiste
             || (other.timestamp == self.timestamp && other.node_id > self.node_id)
             || (other.timestamp == self.timestamp
                 && other.node_id == self.node_id
-                && bincode::serialize(&other.value).unwrap_or_default()
-                    > bincode::serialize(&self.value).unwrap_or_default());
+                && other.value > self.value);
 
         if update {
             self.value = other.value.clone();
@@ -185,7 +183,7 @@ impl<'a, T: Clone + Serialize + DeserializeOwned + Send + Sync + 'static> CrdtRe
 // CRDT Trait Implementation
 // ============================================================================
 
-impl<T: Clone + Default + Serialize + DeserializeOwned + Send + Sync + 'static> Crdt
+impl<T: Clone + Default + Serialize + DeserializeOwned + Ord + Send + Sync + 'static> Crdt
     for LWWRegister<T>
 {
     type Reader<'a> = LWWRegisterReader<'a, T>;

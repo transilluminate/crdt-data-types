@@ -130,7 +130,7 @@ impl<K: Eq + Hash + Ord, V> LWWMap<K, V> {
 impl<K, V> LWWMap<K, V>
 where
     K: Clone + Eq + Hash + Ord + Serialize + DeserializeOwned + Send + Sync + 'static,
-    V: Clone + Serialize + DeserializeOwned + Send + Sync + 'static,
+    V: Clone + Ord + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
     /// Inserts or updates a value for a specific key.
     ///
@@ -146,8 +146,7 @@ where
                     || (timestamp == *ts && node_id_str > *nid)
                     || (timestamp == *ts
                         && node_id_str == *nid
-                        && bincode::serialize(&value).unwrap_or_default()
-                            > bincode::serialize(val).unwrap_or_default());
+                        && value > *val);
                 
                 if update {
                     self.entries[idx] = (key, (value, timestamp, node_id_str));
@@ -205,8 +204,7 @@ where
                         || (*ts2 == *ts1 && nid2 > nid1)
                         || (*ts2 == *ts1
                             && nid2 == nid1
-                            && bincode::serialize(v2).unwrap_or_default()
-                                > bincode::serialize(v1).unwrap_or_default());
+                            && v2 > v1);
                     
                     if update {
                         result.push(other.entries[j].clone());
@@ -323,7 +321,7 @@ where
 impl<K, V> Crdt for LWWMap<K, V>
 where
     K: Clone + Eq + Hash + Ord + Serialize + DeserializeOwned + Send + Sync + 'static,
-    V: Clone + Serialize + DeserializeOwned + Send + Sync + 'static,
+    V: Clone + Ord + Serialize + DeserializeOwned + Send + Sync + 'static,
 {
     type Reader<'a> = LWWMapReader<'a, K, V>;
 
