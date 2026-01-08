@@ -18,6 +18,9 @@ fn main() {
     config.file("proto/roaring_bitmap.capnp");
     config.file("proto/tdigest.capnp");
     config.file("proto/topk.capnp");
+    
+    // Deltas
+    config.file("proto/deltas.capnp");
 
     config.run().expect("Cap'n Proto compilation failed");
 }

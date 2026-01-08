@@ -7,6 +7,20 @@ use std::str::FromStr;
 use crate::traits::CrdtError;
 
 /// Enumeration of supported standard CRDT types.
+///
+/// This enum is primarily used by the `SerdeCapnpBridge` and serialisation logic
+/// to identify the specific Conflict-free Replicated Data Type being processed.
+/// It serves as a discriminator for parsing JSON payloads and Cap'n Proto messages.
+///
+/// # Usage
+///
+/// ```
+/// use crdt_data_types::CrdtType;
+/// use std::str::FromStr;
+///
+/// let type_enum = CrdtType::from_str("gcounter").unwrap();
+/// assert_eq!(type_enum, CrdtType::GCounter);
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum CrdtType {
     GCounter,

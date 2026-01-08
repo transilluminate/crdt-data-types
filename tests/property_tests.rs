@@ -410,3 +410,47 @@ proptest! {
         prop_assert_eq!(actual, expected);
     }
 }
+
+// Delta Equivalence Tests
+use crdt_data_types::deltas_capnp::delta;
+use capnp::serialize;
+
+proptest! {
+    #[test]
+    fn gcounter_delta_equivalence(
+        state in arb_gcounter(), 
+        amount in 1i64..1000i64, // Keep positive for simplicity in PNCounter context, though GCounter supports add
+        node_id in "[a-z0-9]+"
+    ) {
+        let state_json = serde_json::to_value(&state).unwrap();
+        let state_bytes = SerdeCapnpBridge::json_to_capnp_bytes(CrdtType::GCounter, state_json.clone()).unwrap();
+        
+        let delta_json = serde_json::json!(amount);
+        
+        // Construct binary delta manually
+        let mut message = capnp::message::Builder::new_default();
+        message.init_root::<delta::Builder>().set_g_counter(amount); // GCounter is i64 in proto
+        let mut delta_bytes = Vec::new();
+        serialize::write_message(&mut delta_bytes, &message).unwrap();
+
+        // Apply JSON
+        let res_json = SerdeCapnpBridge::apply_delta_json(
+            CrdtType::GCounter, 
+            Some(&state_json), 
+            &delta_json, 
+            &node_id
+        ).unwrap();
+
+        // Apply Capnp
+        let res_bytes = SerdeCapnpBridge::apply_delta_capnp(
+            CrdtType::GCounter,
+            Some(&state_bytes),
+            &delta_bytes,
+            &node_id
+        ).unwrap();
+        
+        // Verify Equivalence
+        let res_capnp_as_json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::GCounter, &res_bytes).unwrap();
+        prop_assert_eq!(res_json, res_capnp_as_json);
+    }
+}

@@ -107,3 +107,9 @@ pub mod orset_capnp {
 pub mod pncounter_capnp {
     include!(concat!(env!("OUT_DIR"), "/proto/pncounter_capnp.rs"));
 }
+pub mod deltas_capnp {
+    include!(concat!(env!("OUT_DIR"), "/proto/deltas_capnp.rs"));
+}
+
+// Module for delta CRDTs
+pub mod deltas;

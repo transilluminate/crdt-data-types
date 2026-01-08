@@ -49,6 +49,8 @@ High-performance Conflict-free Replicated Data Types (CRDTs) with dual-pathway o
 - **Probabilistic Structures**: `HyperLogLog`, `CountMinSketch`, `RoaringBitmap`, `TDigest`, `TopK` (via feature flag).
 - **Vector Clocks**: Standard logical clocks for causality tracking.
 - **Compaction**: Utilities to squash history and reduce payload size.
+- **Binary Deltas**: Apply small, strict delta updates directly to binary states (skip JSON).
+- **Batch Processing**: Amortize IO overhead by applying multiple deltas in one pass.
 
 ## Quick Start
 
@@ -56,9 +58,9 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-crdt-data-types = "0.1.8"
+crdt-data-types = "0.1.9"
 # Optional: Enable probabilistic structures
-# crdt-data-types = { version = "0.1.8", features = ["probabilistic"] }
+# crdt-data-types = { version = "0.1.9", features = ["probabilistic"] }
 ```
 
 ### JSON Pathway (Web API)
@@ -89,12 +91,28 @@ let reader2 = GCounterReader::new(&gc2_bytes);
 let merged_gc = GCounter::merge_from_readers(&[reader1, reader2]).unwrap();
 ```
 
+### High-Performance Delta API (Batching)
+
+For maximum throughput (e.g., ingestion pipelines), use the batch delta API:
+
+```rust
+// Apply 3 binary deltas in a single pass
+let final_state = SerdeCapnpBridge::apply_batch_deltas_capnp(
+    CrdtType::GCounter,
+    Some(&current_state_bytes),
+    &[&delta1_bytes, &delta2_bytes, &delta3_bytes],
+    "node1"
+).unwrap();
+```
+
 ## Performance Tipping Point
 
-| CRDT Type | JSON-Native (N=1000) | Capnp-Native (N=1000) | Winner |
+| Operation | JSON-Native (N=100) | Capnp-Native (N=100) | Winner |
 | :--- | :--- | :--- | :--- |
-| **GCounter** | 986 µs | **374 µs** | **Capnp (2.6x fast)** |
-| **ORSet** | 650 µs | **~270 µs** | **Capnp (2.4x fast)** |
+| **GCounter Merge** | 986 µs | **374 µs** | **Capnp (2.6x fast)** |
+| **ORSet Merge** | 650 µs | **~270 µs** | **Capnp (2.4x fast)** |
+| **ORSet Delta** | 52 µs | **35 µs** | **Capnp (1.5x fast)** |
+| **Batch Apply (10 ops)** | ~25 µs (est) | **5.2 µs** | **Capnp (4.8x fast)** |
 
 ## Testing
 
@@ -105,9 +123,10 @@ Comprehensive test suite covering unit logic, bridge integration, and property-b
 | **Unit Tests** | 3 ✅ | Core logic & compaction |
 | **Basic Tests** | 6 ✅ | Standard CRDT operations |
 | **Bridge Tests** | 6 ✅ | JSON <-> Capnp bridge & case-insensitivity |
-| **Coverage Tests** | 16 ✅ | Edge cases, compaction, & vector clocks |
-| **Property Tests** | 37 ✅ | Proptest fuzzing for commutativity/associativity |
-| **Total** | **68** ✅ | ~82% code coverage |
+| **Coverage Tests** | 17 ✅ | Edge cases, compaction, & vector clocks |
+| **Delta Tests** | 12 ✅ | Binary Cap'n Proto deltas, JSON delta logic, & Property Equivalence |
+| **Property Tests** | 38 ✅ | Proptest fuzzing for commutativity/associativity & delta equivalence |
+| **Total** | **82** ✅ | ~70% code coverage |
 
 Run tests with:
 ```bash
