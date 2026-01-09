@@ -9,7 +9,7 @@ use serde_json::Value;
 ///
 /// Unlike `merge()` which uses max/union semantics for state replication,
 /// this uses additive semantics for client operations.
-pub fn apply_delta_json(
+pub fn apply_json_delta(
     crdt_type: CrdtType,
     current_state: Option<&Value>,
     delta: &Value,
@@ -220,7 +220,7 @@ pub fn apply_delta_json(
 }
 
 /// Apply a JSON delta to a Cap'n Proto binary state, returning new Cap'n Proto bytes.
-pub fn apply_delta_bytes(
+pub fn apply_bytes_delta(
         crdt_type: CrdtType,
         current_state_bytes: Option<&[u8]>,
         delta: &Value,
@@ -432,7 +432,7 @@ pub fn apply_delta_bytes(
 }
 
 /// Apply a Cap'n Proto delta to a Cap'n Proto binary state.
-pub fn apply_delta_capnp(
+pub fn apply_capnp_delta(
     crdt_type: CrdtType,
     current_state_bytes: Option<&[u8]>,
     delta_bytes: &[u8],
@@ -626,7 +626,7 @@ pub fn apply_delta_capnp(
 }
 
 /// Apply a batch of Cap'n Proto deltas to a Cap'n Proto binary state.
-pub fn apply_batch_deltas_capnp(
+pub fn apply_batch_capnp_deltas(
     crdt_type: CrdtType,
     current_state_bytes: Option<&[u8]>,
     deltas_bytes: &[&[u8]],

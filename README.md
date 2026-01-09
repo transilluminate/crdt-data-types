@@ -51,16 +51,14 @@ High-performance Conflict-free Replicated Data Types (CRDTs) with dual-pathway o
 - **Compaction**: Utilities to squash history and reduce payload size.
 - **Binary Deltas**: Apply small, strict delta updates directly to binary states (skip JSON).
 - **Batch Processing**: Amortize IO overhead by applying multiple deltas in one pass.
-
-## Quick Start
-
+    - **Additive Merging**: Sum values for GCounter/PNCounter (vs Max/Union) for flush operations.
 Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-crdt-data-types = "0.1.9"
+crdt-data-types = "0.1.10"
 # Optional: Enable probabilistic structures
-# crdt-data-types = { version = "0.1.9", features = ["probabilistic"] }
+# crdt-data-types = { version = "0.1.10", features = ["probabilistic"] }
 ```
 
 ### JSON Pathway (Web API)
@@ -97,12 +95,31 @@ For maximum throughput (e.g., ingestion pipelines), use the batch delta API:
 
 ```rust
 // Apply 3 binary deltas in a single pass
-let final_state = SerdeCapnpBridge::apply_batch_deltas_capnp(
+let final_state = SerdeCapnpBridge::apply_batch_capnp_deltas(
     CrdtType::GCounter,
     Some(&current_state_bytes),
     &[&delta1_bytes, &delta2_bytes, &delta3_bytes],
     "node1"
 ).unwrap();
+```
+
+### State Accumulation (Additive Merge)
+
+For counters (`GCounter`, `PNCounter`), standard merging uses `MAX` (greatest value seen). Use `add_accumulated_state` when you want to **sum** differences (e.g., flushing a temporary counter to a main counter):
+
+```rust
+// Standard merge: MAX(10, 5) = 10
+// Additive merge: 10 + 5 = 15
+
+let current = json!({ "counters": { "node1": 10 } });
+let flush_delta = json!({ "counters": { "node1": 5 } });
+
+let new_state = SerdeCapnpBridge::add_accumulated_state(
+    CrdtType::GCounter,
+    current,
+    flush_delta
+).unwrap();
+// Result: node1 = 15
 ```
 
 ## Performance Tipping Point
@@ -124,9 +141,10 @@ Comprehensive test suite covering unit logic, bridge integration, and property-b
 | **Basic Tests** | 6 ✅ | Standard CRDT operations |
 | **Bridge Tests** | 6 ✅ | JSON <-> Capnp bridge & case-insensitivity |
 | **Coverage Tests** | 17 ✅ | Edge cases, compaction, & vector clocks |
-| **Delta Tests** | 12 ✅ | Binary Cap'n Proto deltas, JSON delta logic, & Property Equivalence |
+| **Delta Tests** | 11 ✅ | Binary Cap'n Proto deltas, JSON delta logic |
+| **Additive Merge** | 3 ✅ | State accumulation & counter summation |
 | **Property Tests** | 38 ✅ | Proptest fuzzing for commutativity/associativity & delta equivalence |
-| **Total** | **82** ✅ | ~70% code coverage |
+| **Total** | **84** ✅ | ~70% code coverage |
 
 Run tests with:
 ```bash

@@ -52,7 +52,7 @@ fn bench_gcounter_deltas(c: &mut Criterion) {
     // JSON Benchmark
     group.bench_function("JSON Delta", |bencher| {
         bencher.iter(|| {
-            SerdeCapnpBridge::apply_delta_json(
+            SerdeCapnpBridge::apply_json_delta(
                 CrdtType::PNCounter,
                 Some(black_box(&initial_state_json)),
                 black_box(&delta_json),
@@ -64,7 +64,7 @@ fn bench_gcounter_deltas(c: &mut Criterion) {
     // Capnp Benchmark
     group.bench_function("Capnp Delta (Zero-Copy)", |bencher| {
         bencher.iter(|| {
-            SerdeCapnpBridge::apply_delta_capnp(
+            SerdeCapnpBridge::apply_capnp_delta(
                 CrdtType::PNCounter,
                 Some(black_box(&initial_state_bytes)),
                 black_box(&delta_bytes),
@@ -77,7 +77,7 @@ fn bench_gcounter_deltas(c: &mut Criterion) {
     let batch_deltas: Vec<&[u8]> = vec![&delta_bytes; 10];
     group.bench_function("Capnp Batch Apply (10 ops)", |bencher| {
         bencher.iter(|| {
-             SerdeCapnpBridge::apply_batch_deltas_capnp(
+             SerdeCapnpBridge::apply_batch_capnp_deltas(
                 CrdtType::PNCounter,
                 Some(black_box(&initial_state_bytes)),
                 black_box(&batch_deltas),
@@ -119,7 +119,7 @@ fn bench_orset_deltas(c: &mut Criterion) {
 
     group.bench_function("JSON Delta", |bencher| {
         bencher.iter(|| {
-             SerdeCapnpBridge::apply_delta_json(
+             SerdeCapnpBridge::apply_json_delta(
                 CrdtType::ORSet,
                 Some(black_box(&initial_state_json)),
                 black_box(&delta_json),
@@ -130,7 +130,7 @@ fn bench_orset_deltas(c: &mut Criterion) {
 
     group.bench_function("Capnp Delta (Zero-Copy)", |bencher| {
         bencher.iter(|| {
-             SerdeCapnpBridge::apply_delta_capnp(
+             SerdeCapnpBridge::apply_capnp_delta(
                 CrdtType::ORSet,
                 Some(black_box(&initial_state_bytes)),
                 black_box(&delta_bytes),

@@ -135,7 +135,7 @@ fn test_bridge_deltas_coverage() {
         let mut delta_bytes = Vec::new();
         serialize::write_message(&mut delta_bytes, &message).unwrap();
 
-        let res = SerdeCapnpBridge::apply_delta_capnp(CrdtType::PNCounter, None, &delta_bytes, "node1").unwrap();
+        let res = SerdeCapnpBridge::apply_capnp_delta(CrdtType::PNCounter, None, &delta_bytes, "node1").unwrap();
         let json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::PNCounter, &res).unwrap();
         // PNCounter JSON structure: { "positive": { "counters": {...} }, "negative": {...}, "vclock": ... }
         assert_eq!(json["positive"]["counters"]["node1"], 10);
@@ -152,7 +152,7 @@ fn test_bridge_deltas_coverage() {
         let mut delta_bytes = Vec::new();
         serialize::write_message(&mut delta_bytes, &message).unwrap();
 
-        let res = SerdeCapnpBridge::apply_delta_capnp(CrdtType::ORSet, None, &delta_bytes, "node1").unwrap();
+        let res = SerdeCapnpBridge::apply_capnp_delta(CrdtType::ORSet, None, &delta_bytes, "node1").unwrap();
         let _json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::ORSet, &res).unwrap();
         
         let elements = _json["elements"].as_array().unwrap();
@@ -172,7 +172,7 @@ fn test_bridge_deltas_coverage() {
         let mut delta_bytes = Vec::new();
         serialize::write_message(&mut delta_bytes, &message).unwrap();
 
-        let res = SerdeCapnpBridge::apply_delta_capnp(CrdtType::LWWSet, None, &delta_bytes, "node1").unwrap();
+        let res = SerdeCapnpBridge::apply_capnp_delta(CrdtType::LWWSet, None, &delta_bytes, "node1").unwrap();
         let json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::LWWSet, &res).unwrap();
         // LWWSet serialization: `elements: HashMap<T, u64>` (add set) and `remove_set`?
         // `src/lww_set.rs`: `pub add_set: HashMap<T, u64>, pub remove_set: HashMap<T, u64>`
@@ -190,7 +190,7 @@ fn test_bridge_deltas_coverage() {
         let mut delta_bytes = Vec::new();
         serialize::write_message(&mut delta_bytes, &message).unwrap();
 
-        let res = SerdeCapnpBridge::apply_delta_capnp(CrdtType::FWWRegister, None, &delta_bytes, "node1").unwrap();
+        let res = SerdeCapnpBridge::apply_capnp_delta(CrdtType::FWWRegister, None, &delta_bytes, "node1").unwrap();
         let json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::FWWRegister, &res).unwrap();
         assert_eq!(json["value"], "fww_val");
     }
@@ -203,7 +203,7 @@ fn test_bridge_deltas_coverage() {
         let mut delta_bytes = Vec::new();
         serialize::write_message(&mut delta_bytes, &message).unwrap();
 
-        let res = SerdeCapnpBridge::apply_delta_capnp(CrdtType::MVRegister, None, &delta_bytes, "node1").unwrap();
+        let res = SerdeCapnpBridge::apply_capnp_delta(CrdtType::MVRegister, None, &delta_bytes, "node1").unwrap();
         let json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::MVRegister, &res).unwrap();
         // MVRegister JSON: { "entries": { "mv_val": [...] }, "vclock": ... }
         assert!(json["entries"].as_object().unwrap().contains_key("mv_val"));
@@ -223,7 +223,7 @@ fn test_bridge_deltas_coverage() {
         let mut delta_bytes = Vec::new();
         serialize::write_message(&mut delta_bytes, &message).unwrap();
 
-        let res = SerdeCapnpBridge::apply_delta_capnp(CrdtType::LWWMap, None, &delta_bytes, "node1").unwrap();
+        let res = SerdeCapnpBridge::apply_capnp_delta(CrdtType::LWWMap, None, &delta_bytes, "node1").unwrap();
         let json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::LWWMap, &res).unwrap();
         // LWWMap: { "entries": { "k1": ["v1", 1000, "node1"] } ... }
         assert_eq!(json["entries"]["k1"][0], "v1");
@@ -242,7 +242,7 @@ fn test_bridge_deltas_coverage() {
         let mut delta_bytes = Vec::new();
         serialize::write_message(&mut delta_bytes, &message).unwrap();
 
-        let res = SerdeCapnpBridge::apply_delta_capnp(CrdtType::ORMap, None, &delta_bytes, "node1").unwrap();
+        let res = SerdeCapnpBridge::apply_capnp_delta(CrdtType::ORMap, None, &delta_bytes, "node1").unwrap();
         let _json = SerdeCapnpBridge::capnp_bytes_to_json(CrdtType::ORMap, &res).unwrap();
         
         // ORMap -> ORSet<(K,V)> -> elements field is Array of { element: [k,v], ... }

@@ -13,7 +13,7 @@ fn test_capnp_delta_gcounter() {
     serialize::write_message(&mut delta_bytes, &message).unwrap();
     
     // 2. Apply (empty state)
-    let result_bytes = SerdeCapnpBridge::apply_delta_capnp(
+    let result_bytes = SerdeCapnpBridge::apply_capnp_delta(
         CrdtType::GCounter,
         None,
         &delta_bytes,
@@ -38,7 +38,7 @@ fn test_capnp_delta_gset() {
     serialize::write_message(&mut delta_bytes, &message).unwrap();
     
     // 2. Apply (empty state)
-    let result_bytes = SerdeCapnpBridge::apply_delta_capnp(
+    let result_bytes = SerdeCapnpBridge::apply_capnp_delta(
         CrdtType::GSet,
         None,
         &delta_bytes,
@@ -66,7 +66,7 @@ fn test_capnp_delta_lwwregister() {
     let mut delta_bytes = Vec::new();
     serialize::write_message(&mut delta_bytes, &message).unwrap();
     
-    let result_bytes = SerdeCapnpBridge::apply_delta_capnp(
+    let result_bytes = SerdeCapnpBridge::apply_capnp_delta(
         CrdtType::LWWRegister,
         None,
         &delta_bytes,
@@ -100,7 +100,7 @@ fn test_capnp_batch_deltas_gcounter() {
     let batch = vec![delta1_bytes.as_slice(), delta2_bytes.as_slice(), delta3_bytes.as_slice()];
 
     // Apply batch (Starting from None)
-    let result_bytes = SerdeCapnpBridge::apply_batch_deltas_capnp(
+    let result_bytes = SerdeCapnpBridge::apply_batch_capnp_deltas(
         CrdtType::GCounter,
         None,
         &batch,

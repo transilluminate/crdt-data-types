@@ -434,7 +434,7 @@ proptest! {
         serialize::write_message(&mut delta_bytes, &message).unwrap();
 
         // Apply JSON
-        let res_json = SerdeCapnpBridge::apply_delta_json(
+        let res_json = SerdeCapnpBridge::apply_json_delta(
             CrdtType::GCounter, 
             Some(&state_json), 
             &delta_json, 
@@ -442,7 +442,7 @@ proptest! {
         ).unwrap();
 
         // Apply Capnp
-        let res_bytes = SerdeCapnpBridge::apply_delta_capnp(
+        let res_bytes = SerdeCapnpBridge::apply_capnp_delta(
             CrdtType::GCounter,
             Some(&state_bytes),
             &delta_bytes,

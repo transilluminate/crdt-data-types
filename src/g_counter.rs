@@ -165,6 +165,14 @@ impl GCounter {
         self.counters = new_counters;
         self.vclock.merge(&other.vclock);
     }
+
+    /// Additively merge another counter's values into this one.
+    /// Unlike `merge()` which uses max semantics, this ADDS the values.
+    pub fn add_state(&mut self, other: &Self) {
+        for (node_id, count) in &other.counters {
+            self.increment(node_id, *count);
+        }
+    }
 }
 
 // ============================================================================

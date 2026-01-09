@@ -4,7 +4,7 @@ use serde_json::json;
 #[test]
 fn test_delta_gcounter() {
     // 1. New GCounter (0) + 5
-    let state = SerdeCapnpBridge::apply_delta_json(
+    let state = SerdeCapnpBridge::apply_json_delta(
         CrdtType::GCounter,
         None,
         &json!(5),
@@ -16,7 +16,7 @@ fn test_delta_gcounter() {
     assert_eq!(counters_obj.get("node_a").unwrap().as_i64(), Some(5));
 
     // 2. Existing GCounter (5) + 10 = 15
-    let state2 = SerdeCapnpBridge::apply_delta_json(
+    let state2 = SerdeCapnpBridge::apply_json_delta(
         CrdtType::GCounter,
         Some(&state),
         &json!({"increment": 10}),
@@ -27,7 +27,7 @@ fn test_delta_gcounter() {
     assert_eq!(counters_obj2.get("node_a").unwrap().as_i64(), Some(15));
     
     // 3. Different node
-    let state3 = SerdeCapnpBridge::apply_delta_json(
+    let state3 = SerdeCapnpBridge::apply_json_delta(
         CrdtType::GCounter,
         Some(&state2),
         &json!(20),
@@ -42,7 +42,7 @@ fn test_delta_gcounter() {
 #[test]
 fn test_delta_gset() {
     // 1. New GSet + ["a", "b"]
-    let state = SerdeCapnpBridge::apply_delta_json(
+    let state = SerdeCapnpBridge::apply_json_delta(
         CrdtType::GSet,
         None,
         &json!(["a", "b"]),
@@ -54,7 +54,7 @@ fn test_delta_gset() {
     assert!(elements.contains(&json!("b")));
 
     // 2. Existing GSet + {"add": ["c"]}
-    let state2 = SerdeCapnpBridge::apply_delta_json(
+    let state2 = SerdeCapnpBridge::apply_json_delta(
         CrdtType::GSet,
         Some(&state),
         &json!({"add": ["c"]}),
@@ -69,7 +69,7 @@ fn test_delta_gset() {
 
 #[test]
 fn test_delta_orset() {
-    let state = SerdeCapnpBridge::apply_delta_json(
+    let state = SerdeCapnpBridge::apply_json_delta(
         CrdtType::ORSet,
         None,
         &json!({"add": ["apple"]}),
@@ -83,7 +83,7 @@ fn test_delta_orset() {
     assert_eq!(elements[0].get("element").unwrap().as_str(), Some("apple"));
 
     // Remove apple
-    let state2 = SerdeCapnpBridge::apply_delta_json(
+    let state2 = SerdeCapnpBridge::apply_json_delta(
         CrdtType::ORSet,
         Some(&state),
         &json!({"remove": ["apple"]}),
@@ -98,7 +98,7 @@ fn test_delta_orset() {
 
 #[test]
 fn test_delta_lwwregister() {
-    let state = SerdeCapnpBridge::apply_delta_json(
+    let state = SerdeCapnpBridge::apply_json_delta(
         CrdtType::LWWRegister,
         None,
         &json!({"value": "first", "timestamp": 100}),
@@ -109,7 +109,7 @@ fn test_delta_lwwregister() {
     assert_eq!(state.get("timestamp").unwrap().as_u64(), Some(100));
 
     // Update with older timestamp (should fail/ignore)
-    let state2 = SerdeCapnpBridge::apply_delta_json(
+    let state2 = SerdeCapnpBridge::apply_json_delta(
         CrdtType::LWWRegister,
         Some(&state),
         &json!({"value": "ignore_me", "timestamp": 50}),
@@ -119,7 +119,7 @@ fn test_delta_lwwregister() {
     assert_eq!(state2.get("value").unwrap().as_str(), Some("first")); // Still first
 
     // Update with newer timestamp
-    let state3 = SerdeCapnpBridge::apply_delta_json(
+    let state3 = SerdeCapnpBridge::apply_json_delta(
         CrdtType::LWWRegister,
         Some(&state),
         &json!({"value": "second", "timestamp": 200}),
@@ -133,7 +133,7 @@ fn test_delta_lwwregister() {
 #[test]
 fn test_delta_lwwmap() {
     // 1. Set key1=v1
-    let state = SerdeCapnpBridge::apply_delta_json(
+    let state = SerdeCapnpBridge::apply_json_delta(
         CrdtType::LWWMap,
         None,
         &json!({
@@ -155,7 +155,7 @@ fn test_delta_lwwmap() {
     assert_eq!(entry[1].as_u64(), Some(100));
 
     // 2. Remove key1
-    let state2 = SerdeCapnpBridge::apply_delta_json(
+    let state2 = SerdeCapnpBridge::apply_json_delta(
         CrdtType::LWWMap,
         Some(&state),
         &json!({
@@ -172,7 +172,7 @@ fn test_delta_lwwmap() {
 #[test]
 fn test_delta_bytes_gcounter() {
     // 1. New GCounter (0) + 5
-    let bytes = SerdeCapnpBridge::apply_delta_bytes(
+    let bytes = SerdeCapnpBridge::apply_bytes_delta(
         CrdtType::GCounter,
         None,
         &json!(5),
@@ -185,7 +185,7 @@ fn test_delta_bytes_gcounter() {
     assert_eq!(counters_obj.get("node_a").unwrap().as_i64(), Some(5));
 
     // 2. Existing GCounter (5) + 10 = 15
-    let bytes2 = SerdeCapnpBridge::apply_delta_bytes(
+    let bytes2 = SerdeCapnpBridge::apply_bytes_delta(
         CrdtType::GCounter,
         Some(&bytes),
         &json!({"increment": 10}),
@@ -199,7 +199,7 @@ fn test_delta_bytes_gcounter() {
 
 #[test]
 fn test_delta_bytes_lwwmap() {
-    let bytes = SerdeCapnpBridge::apply_delta_bytes(
+    let bytes = SerdeCapnpBridge::apply_bytes_delta(
         CrdtType::LWWMap,
         None,
         &json!({

@@ -112,3 +112,33 @@ pub fn merge_json_values(crdt_type: CrdtType, values: &[Value]) -> Result<Value,
         }
     }
 }
+
+/// Additively merge accumulated delta state into current state.
+/// For counters: adds values using add_state.
+/// For sets and registers: falls back to standard merge (union/LWW).
+pub fn add_accumulated_state(
+    crdt_type: CrdtType,
+    current: Value,
+    accumulated: Value,
+) -> Result<Value, CrdtError> {
+    match crdt_type {
+        CrdtType::GCounter => {
+            let mut base: GCounter = serde_json::from_value(current)
+                .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
+            let other: GCounter = serde_json::from_value(accumulated)
+                .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
+            base.add_state(&other);
+            serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
+        }
+        CrdtType::PNCounter => {
+            let mut base: PNCounter = serde_json::from_value(current)
+                .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
+            let other: PNCounter = serde_json::from_value(accumulated)
+                .map_err(|e| CrdtError::InvalidInput(e.to_string()))?;
+            base.add_state(&other);
+            serde_json::to_value(base).map_err(|e| CrdtError::InvalidInput(e.to_string()))
+        }
+        // Fallback to merge for others
+        _ => merge_json_values(crdt_type, &[current, accumulated]),
+    }
+}

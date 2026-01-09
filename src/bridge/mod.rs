@@ -51,43 +51,52 @@ impl SerdeCapnpBridge {
         merging::merge_json_values(crdt_type, values)
     }
 
+    /// Additively merge accumulated delta state into current state.
+    pub fn add_accumulated_state(
+        crdt_type: CrdtType,
+        current: Value,
+        accumulated: Value,
+    ) -> Result<Value, CrdtError> {
+        merging::add_accumulated_state(crdt_type, current, accumulated)
+    }
+
     /// Apply a delta operation to an existing CRDT state.
-    pub fn apply_delta_json(
+    pub fn apply_json_delta(
         crdt_type: CrdtType,
         current_state: Option<&Value>,
         delta: &Value,
         node_id: &str,
     ) -> Result<Value, CrdtError> {
-        deltas::apply_delta_json(crdt_type, current_state, delta, node_id)
+        deltas::apply_json_delta(crdt_type, current_state, delta, node_id)
     }
 
     /// Apply a JSON delta to a Cap'n Proto binary state, returning new Cap'n Proto bytes.
-    pub fn apply_delta_bytes(
+    pub fn apply_bytes_delta(
          crdt_type: CrdtType,
          current_state_bytes: Option<&[u8]>,
          delta: &Value,
          node_id: &str,
     ) -> Result<Vec<u8>, CrdtError> {
-        deltas::apply_delta_bytes(crdt_type, current_state_bytes, delta, node_id)
+        deltas::apply_bytes_delta(crdt_type, current_state_bytes, delta, node_id)
     }
 
     /// Apply a Cap'n Proto delta to a Cap'n Proto binary state.
-    pub fn apply_delta_capnp(
+    pub fn apply_capnp_delta(
         crdt_type: CrdtType,
         current_state_bytes: Option<&[u8]>,
         delta_bytes: &[u8],
         node_id: &str,
     ) -> Result<Vec<u8>, CrdtError> {
-        deltas::apply_delta_capnp(crdt_type, current_state_bytes, delta_bytes, node_id)
+        deltas::apply_capnp_delta(crdt_type, current_state_bytes, delta_bytes, node_id)
     }
 
     /// Apply a batch of Cap'n Proto deltas to a Cap'n Proto binary state.
-    pub fn apply_batch_deltas_capnp(
+    pub fn apply_batch_capnp_deltas(
         crdt_type: CrdtType,
         current_state_bytes: Option<&[u8]>,
         deltas_bytes: &[&[u8]],
         node_id: &str,
     ) -> Result<Vec<u8>, CrdtError> {
-        deltas::apply_batch_deltas_capnp(crdt_type, current_state_bytes, deltas_bytes, node_id)
+        deltas::apply_batch_capnp_deltas(crdt_type, current_state_bytes, deltas_bytes, node_id)
     }
 }

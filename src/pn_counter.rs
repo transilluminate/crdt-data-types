@@ -86,6 +86,16 @@ impl PNCounter {
         self.negative.merge(&other.negative);
         self.vclock.merge(&other.vclock);
     }
+
+    /// Additively merge another counter's values into this one.
+    pub fn add_state(&mut self, other: &Self) {
+        for (node_id, count) in &other.positive.counters {
+            self.increment(node_id, *count);
+        }
+        for (node_id, count) in &other.negative.counters {
+            self.decrement(node_id, *count);
+        }
+    }
 }
 
 // ============================================================================

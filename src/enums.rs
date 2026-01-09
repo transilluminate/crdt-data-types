@@ -21,7 +21,8 @@ use crate::traits::CrdtError;
 /// let type_enum = CrdtType::from_str("gcounter").unwrap();
 /// assert_eq!(type_enum, CrdtType::GCounter);
 /// ```
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[serde(into = "String")]
 pub enum CrdtType {
     GCounter,
     PNCounter,
@@ -69,6 +70,22 @@ impl FromStr for CrdtType {
             "ormap" => Ok(CrdtType::ORMap),
             _ => Err(CrdtError::InvalidInput(format!("Unknown CRDT type: {}", s))),
         }
+    }
+}
+
+impl From<CrdtType> for String {
+    fn from(t: CrdtType) -> Self {
+        t.to_string()
+    }
+}
+
+impl<'de> Deserialize<'de> for CrdtType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        CrdtType::from_str(&s).map_err(serde::de::Error::custom)
     }
 }
 
