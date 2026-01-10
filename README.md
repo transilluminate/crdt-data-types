@@ -12,6 +12,11 @@ High-performance Conflict-free Replicated Data Types (CRDTs) with dual-pathway o
 - **JSON-Native (Low Gear)**: Seamless integration with Web APIs and frontends. Uses `serde_json` for direct struct manipulation.
 - **Capnp-Native (High Gear)**: Zero-copy, high-throughput merging for distributed systems and storage engines.
 
+## Demonstration
+
+- Includes a roguelike multiplayer game to demonstrate CRDT merges: collect coins and battle monsters, how long can you survive?
+- See the [README.md](https://github.com/transilluminate/crdt-data-types/tree/main/demo-server) in the demo-server folder.
+
 ## Architecture
 
 ```
